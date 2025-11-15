@@ -1,0 +1,47 @@
+/* EyeGesturesLite required CSS */
+/* These styles are used by the EyeGesturesLite library for the gaze cursor and calibration cursor */
+
+#cursor {
+  position: fixed;
+  width: 50px;
+  height: 50px;
+  background: rgba(0, 0, 255, 0.342);
+  border-radius: 50%;
+  border: medium solid rgba(0, 0, 255, 0.171);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+#calib_cursor {
+  position: fixed;
+  width: 200px;
+  height: 200px;
+  background: #ff575777;
+  border-radius: 50%;
+  border: medium solid #ff5757;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+#logoDivEyeGestures {
+  transition: transform 0.2s;
+}
+
+#logoDivEyeGestures:hover {
+  transform: scale(1.01);
+}
+
+#logoDivEyeGestures:active {
+  transform: scale(1.0);
+}
+
+/* Canvas for MediaPipe face mesh visualization (optional, usually hidden) */
+#output_canvas {
+  display: none;
+}
+
+/* Status and error divs (hidden by default, shown by library if needed) */
+#status,
+#error {
+  display: none;
+}

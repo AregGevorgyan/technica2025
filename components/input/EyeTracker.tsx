@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  initializeWebGazer,
-  setGazeListener,
-  removeGazeListener,
-  stopWebGazer,
+  initializeEyeGestures,
+  startEyeGestures,
+  addGazeListener,
+  removeAllGazeListeners,
+  stopEyeGestures,
   showVideoPreview,
-  isWebGazerReady,
-} from '@/lib/input/webgazer-init';
+  isEyeGesturesReady,
+  isEyeGesturesCalibrated,
+  hideGazeCursor,
+} from '@/lib/input/eyegestures-init';
 import { GazeSmoothing, DwellDetector } from '@/lib/input/gaze-utils';
 
 interface EyeTrackerProps {
@@ -22,35 +25,58 @@ interface EyeTrackerProps {
 
 export default function EyeTracker({
   enabled,
-  dwellTime = 1000,
+  dwellTime = 1500,
   showPreview = true,
   onGazeUpdate,
   onDwellComplete,
   children,
 }: EyeTrackerProps) {
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isCalibrated, setIsCalibrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gazePosition, setGazePosition] = useState<{ x: number; y: number } | null>(null);
 
-  const gazeSmoothing = React.useRef(new GazeSmoothing(10)); // Increased from 5 to 10 for smoother tracking
-  const dwellDetector = React.useRef(new DwellDetector());
+  const gazeSmoothing = useRef(new GazeSmoothing(10)); // Increased buffer for smoother tracking
+  const dwellDetector = useRef(new DwellDetector());
 
   const handleGazeData = useCallback(
-    (data: { x: number; y: number; timestamp: number }) => {
+    (data: { x: number; y: number; timestamp: number; calibrated: boolean }) => {
       if (!data || data.x == null || data.y == null) {
+        console.warn('Invalid gaze data received:', data);
         return; // Skip invalid data
+      }
+
+      // Track calibration status
+      if (data.calibrated && !isCalibrated) {
+        console.log('✅ Calibration complete detected in EyeTracker component');
+        setIsCalibrated(true);
+      }
+
+      // IMPORTANT: Use data.calibrated from the callback, NOT local state
+      // The data.calibrated parameter tells us if THIS specific gaze point is calibrated
+      if (!data.calibrated) {
+        // Log occasionally during calibration
+        if (Math.random() < 0.05) {
+          console.log('Calibration in progress, skipping gaze data');
+        }
+        return;
       }
 
       // Smooth the gaze data
       const smoothed = gazeSmoothing.current.addPoint(data.x, data.y);
       setGazePosition(smoothed);
 
+      // Log occasionally to verify gaze data is flowing
+      if (Math.random() < 0.01) {
+        console.log('✅ Gaze data flowing:', { raw: { x: data.x, y: data.y }, smoothed });
+      }
+
       // Always call onGazeUpdate with smoothed coordinates
       if (onGazeUpdate) {
         onGazeUpdate(smoothed.x, smoothed.y);
       }
     },
-    [onGazeUpdate]
+    [onGazeUpdate, isCalibrated]
   );
 
   useEffect(() => {
@@ -58,11 +84,35 @@ export default function EyeTracker({
 
     const initialize = async () => {
       try {
-        const success = await initializeWebGazer();
+        // Check if already calibrated from a previous session
+        const alreadyCalibrated = isEyeGesturesCalibrated();
+
+        // Initialize EyeGesturesLite
+        console.log('Initializing EyeGestures...');
+        const success = await initializeEyeGestures('video');
         if (success) {
           setIsInitialized(true);
-          setGazeListener(handleGazeData);
+
+          // Check calibration status again after initialization
+          const isNowCalibrated = isEyeGesturesCalibrated();
+          setIsCalibrated(isNowCalibrated);
+          console.log('Calibration status after init:', isNowCalibrated);
+
+          // Add gaze listener BEFORE starting eye tracking
+          console.log('Adding gaze listener...');
+          addGazeListener(handleGazeData);
           showVideoPreview(showPreview);
+
+          // Start eye tracking - skip calibration if already calibrated
+          console.log('Starting eye gestures with skipCalibration:', true);
+          await startEyeGestures(true); // Pass true to skip recalibration if already done
+
+          // Keep the built-in blue gaze cursor visible for now (for debugging)
+          // We can hide it later once we verify tracking works
+          // hideGazeCursor();
+
+          console.log(`✅ Eye tracking ${isNowCalibrated ? 'resumed with existing calibration' : 'starting calibration'}`);
+          console.log('Listener count should now be > 0');
         } else {
           setError('Failed to initialize eye tracking');
         }
@@ -75,11 +125,11 @@ export default function EyeTracker({
     initialize();
 
     return () => {
-      removeGazeListener();
-      if (isWebGazerReady()) {
-        stopWebGazer();
-      }
+      removeAllGazeListeners();
+      // Don't stop EyeGestures on unmount - keep it running for navigation between pages
+      // Only clean up listeners
       setIsInitialized(false);
+      // Keep calibration state
     };
   }, [enabled, handleGazeData, showPreview]);
 
@@ -94,25 +144,38 @@ export default function EyeTracker({
         <div className="flex items-center gap-3">
           <div
             className={`w-3 h-3 rounded-full ${
-              isInitialized ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+              isCalibrated
+                ? 'bg-green-500 animate-pulse'
+                : isInitialized
+                ? 'bg-yellow-500 animate-pulse'
+                : 'bg-gray-400'
             }`}
           />
           <div>
             <div className="font-semibold text-sm">
-              {isInitialized ? 'Eye Tracking Active' : 'Initializing...'}
+              {isCalibrated
+                ? 'Eye Tracking Active'
+                : isInitialized
+                ? 'Calibrating...'
+                : 'Initializing...'}
             </div>
             {error && <div className="text-red-600 text-xs mt-1">{error}</div>}
-            {isInitialized && (
+            {isCalibrated && (
               <div className="text-xs text-gray-600 mt-1">
                 Dwell time: {dwellTime}ms
+              </div>
+            )}
+            {isInitialized && !isCalibrated && (
+              <div className="text-xs text-gray-600 mt-1">
+                Follow the calibration points
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Gaze cursor indicator */}
-      {isInitialized && gazePosition && (
+      {/* Custom gaze cursor indicator (only when calibrated) */}
+      {isCalibrated && gazePosition && (
         <div
           className="fixed pointer-events-none z-40"
           style={{
