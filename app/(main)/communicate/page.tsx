@@ -265,6 +265,11 @@ function CommunicatePageContent() {
       const tileId = htmlEl.getAttribute('data-tile-id');
       if (!tileId) return;
 
+      // Skip disabled buttons
+      if (htmlEl.hasAttribute('disabled') || htmlEl.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+
       const rect = htmlEl.getBoundingClientRect();
       // Add margin for easier targeting
       const margin = 20;
@@ -297,23 +302,35 @@ function CommunicatePageContent() {
           // Check if it's a button or a tile
           if (tileId.startsWith('btn-')) {
             // Handle button clicks
+            console.log('Button detected:', tileId);
             switch (tileId) {
               case 'btn-speak':
+                console.log('Speak button - checking conditions:', {
+                  hasText: !!composedText.fullText,
+                  isSpeaking,
+                  text: composedText.fullText
+                });
                 if (composedText.fullText && !isSpeaking) {
+                  console.log('✅ Calling handleSpeak()');
                   handleSpeak();
+                } else {
+                  console.log('❌ Speak button conditions not met');
                 }
                 break;
               case 'btn-copy':
+                console.log('Copy button - has text:', !!composedText.fullText);
                 if (composedText.fullText) {
                   handleCopy();
                 }
                 break;
               case 'btn-backspace':
+                console.log('Backspace button - segments:', composedText.segments.length);
                 if (composedText.segments.length > 0) {
                   handleBackspace();
                 }
                 break;
               case 'btn-clear':
+                console.log('Clear button - segments:', composedText.segments.length);
                 if (composedText.segments.length > 0) {
                   handleClear();
                 }
@@ -339,7 +356,7 @@ function CommunicatePageContent() {
       setGazingTileId(undefined);
       setGazeProgress(0);
     }
-  }, [eyeTrackingEnabled, tiles, settings.dwellTime, handleTileSelect, showHeatmap]);
+  }, [eyeTrackingEnabled, tiles, settings.dwellTime, handleTileSelect, showHeatmap, composedText, isSpeaking, handleSpeak, handleCopy, handleBackspace, handleClear]);
 
   const content = (
     <div
