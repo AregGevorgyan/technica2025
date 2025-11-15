@@ -90,13 +90,24 @@ function CommunicatePageContent() {
     }
   }, [speechMode]);
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      setIsSpeaking(true);
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
+  const speakText = async (text: string) => {
+    setIsSpeaking(true);
+    try {
+      // Try ElevenLabs first for high-quality TTS
+      const { speakWithElevenLabs } = await import('@/lib/tts/elevenlabs');
+      await speakWithElevenLabs({ text });
+      setIsSpeaking(false);
+    } catch (error) {
+      console.warn('ElevenLabs TTS failed, falling back to Web Speech API:', error);
+      // Fallback to browser's Web Speech API
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setIsSpeaking(false);
+      }
     }
   };
 
