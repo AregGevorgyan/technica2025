@@ -1,0 +1,5 @@
+
+{
+  "name": "Generative Image Studio",
+  "description": "An interactive web application for generating images based on user prompts and selected styles. Users can input a text description, choose from a variety of image styles, and generate unique visual content."
+}
