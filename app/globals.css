@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* High contrast mode */
+.high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+}
+
+.high-contrast button,
+.high-contrast .tile {
+  border: 3px solid #ffffff;
+}
+
+/* Accessibility - focus styles */
+*:focus-visible {
+  outline: 3px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Eye tracking - dwell indicator */
+@keyframes dwell-progress {
+  from {
+    stroke-dashoffset: 283;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.dwell-indicator {
+  animation: dwell-progress var(--dwell-time, 1000ms) linear;
+}

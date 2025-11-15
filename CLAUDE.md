@@ -1,18 +1,65 @@
 # CLAUDE.md - Adaptive AAC Communication System
 
 ## Project Overview
-An intelligent, adaptive AAC (Augmentative and Alternative Communication) system that learns from user interactions to provide increasingly personalized communication options. Combines visual symbols, dynamic word prediction, and AI memory to create a communication tool that evolves with the user's needs and preferences.
+An intelligent, adaptive AAC (Augmentative and Alternative Communication) system that learns from user interactions to provide increasingly personalized communication options. Built for **Technica 2025**, the current implementation focuses on webcam-based eye tracking for hands-free communication.
 
-## Core Features
+**Primary Goal**: Enable individuals with limited motor control to communicate using only their eyes through advanced eye tracking technology.
+
+## Current Implementation Status
+
+### ✅ Phase 1: Core Eye Tracking AAC (COMPLETED)
+
+#### Eye Tracking Features
+- **WebGazer.js Integration**: Webcam-based eye tracking without special hardware
+- **Streamlined Calibration**: 5-point calibration process (~30 seconds)
+  - Reduced from 9 points for faster setup
+  - Progress bar shows real-time completion percentage
+  - Visual feedback with color-coded dots (red=active, green=completed, gray=pending)
+  - Bottom-positioned progress bar to avoid obstructing calibration points
+- **Dwell-Based Selection**: Look at tiles for 1.5 seconds to select
+  - Visual feedback with blue rings and fill animations
+  - Progress indicator shows dwell completion percentage
+- **Advanced Gaze Smoothing**:
+  - Exponential Weighted Moving Average (EWMA) algorithm
+  - Buffer size of 10 data points for optimal stability
+  - Alpha value of 0.3 balances responsiveness vs. smoothness
+  - 20px margin around elements for easier targeting
+- **Real-Time Visual Feedback**:
+  - Blue gaze cursor follows eye movements
+  - Progress rings around tiles during dwell
+  - Fill animations show selection progress
+
+#### Communication Features
+- **Flexible Speech Output Modes**:
+  - **Immediate Mode**: Speak each word as selected
+  - **Compose Mode**: Build full sentences before speaking
+    - Text display bar shows accumulated words
+    - Backspace to remove last word
+    - Clear to start over
+    - Copy to clipboard for external use
+- **Browser-Based TTS**: Web Speech API for text-to-speech
+- **Multiple Input Methods**: Eye tracking, click/touch, keyboard (all work simultaneously)
+- **Category Navigation**: Browse tiles by category (Needs, Feelings, People, Activities, Social)
+- **Regenerate Options**: Request new tile suggestions
+
+#### Responsive Design
+- **Mobile-First Approach**: Optimized for all screen sizes
+  - Mobile: 320px - 640px
+  - Tablet: 640px - 1024px
+  - Desktop: 1024px+
+- **Dynamic Scaling**: All elements scale appropriately
+  - Calibration dots: 12px (mobile) → 20px (desktop)
+  - Text sizes: xs → sm → base → lg
+  - Padding and spacing: responsive breakpoints
+- **Touch-Friendly**: Large touch targets for accessibility
+- **High Contrast**: WCAG-compliant color contrast
+
+### 🚧 Phase 2: AI Memory & Learning (PLANNED)
 - **Adaptive Interface**: LLM dynamically adjusts available communication options based on context
-- **Visual + Text Communication**: Words paired with relevant images/symbols for easier recognition
+- **Visual + Text Communication**: Words paired with relevant images/symbols from OpenSymbols
 - **User Memory System**: AI learns user preferences, routines, and communication patterns
 - **Smart Predictions**: Context-aware suggestions that improve over time
-- **Multiple Input Methods**: Eye tracking, keyboard, click/touch for accessibility
-- **Flexible Speech Output**: Choose between immediate speech or text aggregation modes
-- **Text Management**: Copy aggregated text to clipboard for external use
-- **Regenerate Options**: Request new suggestions at any time for better choices
-- **Symbol-Based Navigation**: Category-based browsing with visual cues from OpenSymbols library
+- **Symbol-Based Navigation**: Integration with OpenSymbols library
 
 ## Tech Stack
 
