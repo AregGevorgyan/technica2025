@@ -5,12 +5,14 @@ An intelligent, adaptive AAC (Augmentative and Alternative Communication) system
 
 ## Core Features
 - **Adaptive Interface**: LLM dynamically adjusts available communication options based on context
-- **Visual + Text Communication**: Words paired with relevant images for easier recognition
+- **Visual + Text Communication**: Words paired with relevant images/symbols for easier recognition
 - **User Memory System**: AI learns user preferences, routines, and communication patterns
 - **Smart Predictions**: Context-aware suggestions that improve over time
-- **Eye Tracking + Keyboard**: Multiple input methods for accessibility
-- **Live Speech Output**: Text-to-speech using ElevenLabs API
-- **Symbol-Based Navigation**: Category-based browsing with visual cues
+- **Multiple Input Methods**: Eye tracking, keyboard, click/touch for accessibility
+- **Flexible Speech Output**: Choose between immediate speech or text aggregation modes
+- **Text Management**: Copy aggregated text to clipboard for external use
+- **Regenerate Options**: Request new suggestions at any time for better choices
+- **Symbol-Based Navigation**: Category-based browsing with visual cues from OpenSymbols library
 
 ## Tech Stack
 
@@ -64,43 +66,58 @@ adaptive-aac-app/
 │   │   ├── CalibrationDots.tsx
 │   │   └── CalibrationProgress.tsx
 │   ├── communication/
-│   │   ├── AdaptiveTileGrid.tsx    # Dynamic tile layout
-│   │   ├── SymbolTile.tsx          # Image + text tile
-│   │   ├── CategoryBrowser.tsx     # Navigate by category
-│   │   ├── TextDisplay.tsx
-│   │   ├── ContextBar.tsx          # Show current context
-│   │   └── QuickPhrases.tsx        # Frequently used phrases
+│   │   ├── AdaptiveTileGrid.tsx       # Dynamic tile layout
+│   │   ├── SymbolTile.tsx             # Image/symbol + text tile
+│   │   ├── CategoryBrowser.tsx        # Navigate by category
+│   │   ├── TextDisplay.tsx            # Aggregated mode text display
+│   │   ├── TextDisplayBar.tsx         # Top bar with accumulated text
+│   │   ├── SpeakButton.tsx            # Trigger TTS in aggregated mode
+│   │   ├── CopyTextButton.tsx         # Copy to clipboard
+│   │   ├── RegenerateButton.tsx       # Request new options
+│   │   ├── ContextBar.tsx             # Show current context
+│   │   └── QuickPhrases.tsx           # Frequently used phrases
 │   ├── memory/
-│   │   ├── MemoryTimeline.tsx      # Visual history
-│   │   └── MemoryEditor.tsx        # Edit AI memories
+│   │   ├── MemoryTimeline.tsx         # Visual history
+│   │   └── MemoryEditor.tsx           # Edit AI memories
 │   ├── common/
 │   │   ├── Button.tsx
 │   │   └── Modal.tsx
-│   └── eye-tracking/
-│       ├── EyeTracker.tsx
-│       └── GazeDetector.tsx
+│   └── input/
+│       ├── EyeTracker.tsx             # Eye tracking handler
+│       ├── GazeDetector.tsx           # Gaze detection logic
+│       ├── ClickHandler.tsx           # Click/touch handler
+│       └── KeyboardHandler.tsx        # Keyboard navigation
 ├── lib/
-│   ├── eye-tracking/
-│   │   ├── webgazer-init.ts
-│   │   └── gaze-utils.ts
+│   ├── input/
+│   │   ├── webgazer-init.ts        # Eye tracking setup
+│   │   ├── gaze-utils.ts           # Gaze detection helpers
+│   │   ├── click-handler.ts        # Click/touch logic
+│   │   └── keyboard-handler.ts     # Keyboard navigation
 │   ├── llm/
 │   │   ├── prediction-service.ts
 │   │   ├── memory-service.ts       # Manage user memories
 │   │   └── context-builder.ts      # Build prompts with memory
+│   ├── symbols/
+│   │   ├── opensymbols.ts          # OpenSymbols library integration
+│   │   ├── symbol-search.ts        # Search across symbol sets
+│   │   └── symbol-cache.ts         # Local symbol caching
 │   ├── images/
 │   │   ├── search-service.ts       # Google/Unsplash search
 │   │   └── cache-service.ts        # Cache image URLs
 │   ├── tts/
 │   │   ├── elevenlabs.ts
 │   │   └── web-speech.ts
+│   ├── clipboard/
+│   │   └── copy-utils.ts           # Clipboard operations
 │   └── supabase/
 │       ├── client.ts
 │       └── queries.ts
 ├── types/
-│   ├── eye-tracking.ts
-│   ├── communication.ts
-│   ├── memory.ts
-│   └── user.ts
+│   ├── input.ts                    # Input modes & handlers
+│   ├── communication.ts            # Speech modes, tiles
+│   ├── memory.ts                   # User memories
+│   ├── symbols.ts                  # Symbol/image types
+│   └── user.ts                     # User settings & preferences
 └── public/
     ├── calibration-sounds/
     └── fallback-symbols/          # Default symbols if images fail
@@ -118,13 +135,16 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE user_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  dwell_time INTEGER DEFAULT 1000,
+  input_mode VARCHAR(20) DEFAULT 'click', -- click, eye_tracking, keyboard
+  dwell_time INTEGER DEFAULT 1000, -- For eye tracking
   tile_size VARCHAR(10) DEFAULT 'medium',
   prediction_count INTEGER DEFAULT 6,
   voice_id VARCHAR(100),
+  speech_mode VARCHAR(20) DEFAULT 'immediate', -- immediate, aggregated
   high_contrast BOOLEAN DEFAULT false,
   show_images BOOLEAN DEFAULT true,
   image_size VARCHAR(10) DEFAULT 'medium',
+  symbol_source VARCHAR(20) DEFAULT 'opensymbols', -- opensymbols, google, unsplash
   learning_enabled BOOLEAN DEFAULT true, -- Allow AI to learn preferences
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
@@ -314,59 +334,108 @@ const categories = {
 };
 ```
 
-## Image Integration
+## Image & Symbol Integration
 
-### Image Search Strategy
-1. **Primary**: Google Custom Search API (Images)
-   - Reliable, high-quality images
+### Symbol/Image Search Strategy
+1. **Primary**: OpenSymbols (https://github.com/open-aac/opensymbols)
+   - Free, open-source AAC symbol library
+   - Consistent, recognizable symbols designed for communication
+   - Multiple symbol sets: Mulberry, ARASAAC, SymbolStix, etc.
+   - Local integration, no API limits
+   - Best for common AAC vocabulary
+
+2. **Secondary**: Google Custom Search API (Images)
+   - Reliable, high-quality images for concepts not in OpenSymbols
    - Customizable safe search
    - 100 free queries/day, then paid
 
-2. **Fallback**: Unsplash API
+3. **Tertiary**: Unsplash API
    - Free, high-quality stock photos
    - Good for abstract concepts
    - 50 requests/hour free tier
 
-3. **Cache-First Approach**:
-   - Check database cache first
+4. **Cache-First Approach**:
+   - Check OpenSymbols library first
+   - Check database cache for custom/Google/Unsplash images
    - If miss, fetch from API and cache
    - Cache expires after 30 days
-   - Pre-populate common words on deployment
+   - Pre-populate common AAC words with OpenSymbols on deployment
 
-### Image Selection Logic
+### Symbol/Image Selection Logic
 ```typescript
 // /api/images/search
 POST /api/images/search
 {
   "term": "coffee",
-  "userId": "uuid" // For personalization
+  "userId": "uuid", // For personalization
+  "preferSymbols": true // User preference for symbols vs photos
 }
 
 // Backend logic:
-// 1. Check cache
-// 2. If no cache, search Google/Unsplash
-// 3. Select best image (simple, clear, relevant)
-// 4. Cache result
-// 5. Return URL
+// 1. Check if term exists in OpenSymbols library
+// 2. If found, return symbol URL
+// 3. If not found or user prefers photos, check cache
+// 4. If no cache, search Google/Unsplash
+// 5. Select best image (simple, clear, relevant)
+// 6. Cache result
+// 7. Return URL with metadata (source, type)
 ```
 
+### OpenSymbols Integration
+
+OpenSymbols provides a comprehensive, free library of AAC symbols. Integration strategy:
+
+1. **Symbol Sets Available**:
+   - **Mulberry Symbols**: Simple, modern, colorful (recommended default)
+   - **ARASAAC**: Widely-used international symbols
+   - **SymbolStix**: Clear, recognizable symbols
+   - **Tawasol**: Arabic-language symbols
+   - User can choose preferred set in settings
+
+2. **Local Storage**:
+   - Download relevant symbol sets during build
+   - Store in `public/symbols/` directory
+   - Organize by category for fast lookup
+   - Total size: ~50-100MB for core vocabulary
+
+3. **Symbol Lookup**:
+   ```typescript
+   // lib/symbols/opensymbols.ts
+   interface SymbolResult {
+     symbolUrl: string;
+     source: 'mulberry' | 'arasaac' | 'symbolstix';
+     license: string;
+   }
+
+   async function findSymbol(word: string, preferredSet?: string): Promise<SymbolResult | null> {
+     // 1. Check preferred symbol set first
+     // 2. Fallback to other sets
+     // 3. Return null if not found (trigger image search)
+   }
+   ```
+
+4. **Attribution**: Display symbol license info in settings/about page
+
 ### Common Word Pre-Caching
-Pre-cache images for ~500 most common AAC words on first deployment:
-- Basic needs: water, food, bathroom, help, yes, no
-- Emotions: happy, sad, angry, tired, hurt
-- People: mom, dad, family, friend, doctor
-- Activities: eat, drink, sleep, play, watch
-- Places: home, hospital, school, outside
+Pre-load symbols/images for ~500 most common AAC words:
+- **Basic needs**: water, food, bathroom, help, yes, no, more, stop
+- **Emotions**: happy, sad, angry, tired, hurt, scared, excited
+- **People**: mom, dad, family, friend, doctor, nurse, caregiver
+- **Activities**: eat, drink, sleep, play, watch, listen, read, go
+- **Places**: home, hospital, school, outside, bedroom, kitchen
+- **Time**: now, later, today, tomorrow, morning, afternoon, night
+- **Questions**: what, where, when, who, why, how
 
 ## User Flows
 
 ### First-Time User Setup
-1. **Welcome**: Choose input mode (eye tracking / keyboard)
+1. **Welcome**: Choose input mode (click/touch, eye tracking, or keyboard)
 2. **Calibration**: If eye tracking selected
-3. **Introduction**: Brief tutorial of interface
-4. **Learning Consent**: "Can the app learn your preferences to help communicate better?"
-5. **Basic Info** (optional): Name, common people in life, interests
-6. **Start Communicating**: Interface shows general options
+3. **Speech Mode Selection**: Choose immediate speech or text aggregation mode
+4. **Introduction**: Brief tutorial of interface
+5. **Learning Consent**: "Can the app learn your preferences to help communicate better?"
+6. **Basic Info** (optional): Name, common people in life, interests
+7. **Start Communicating**: Interface shows general options
 
 ### Ongoing Adaptation
 1. User selects options to communicate
@@ -382,6 +451,93 @@ Pre-cache images for ~500 most common AAC words on first deployment:
 - **Week 1**: Time-based predictions emerge (coffee in morning)
 - **Week 2**: Relationship-aware options (mentions family names)
 - **Month 1**: Highly personalized, anticipates needs accurately
+
+## Communication Modes & Input Methods
+
+### Input Methods
+Users can select from multiple input methods based on their abilities and preferences:
+
+1. **Click/Touch Mode** (Default)
+   - Direct selection via mouse click or touchscreen
+   - Fastest and most accessible for users with motor control
+   - Visual hover effects for feedback
+   - Works on all devices
+
+2. **Eye Tracking Mode**
+   - Uses WebGazer.js for gaze detection
+   - Dwell time configurable (default: 1000ms)
+   - Visual countdown indicator on focused tile
+   - Requires calibration before first use
+   - Best for users with limited motor control
+
+3. **Keyboard Mode**
+   - Number keys (1-9) to select tiles
+   - Arrow keys for navigation
+   - Enter to confirm selection
+   - Escape to go back
+   - Full keyboard accessibility
+
+### Speech Output Modes
+
+Users can choose how their selected words are spoken:
+
+#### 1. Immediate Speech Mode
+- **Behavior**: Each selected option is spoken immediately upon selection
+- **Use Case**: Quick, conversational communication
+- **Features**:
+  - Instant audio feedback
+  - Good for simple requests and responses
+  - Mimics natural conversation flow
+- **Example Flow**:
+  ```
+  User selects: "I want" → [spoken immediately]
+  User selects: "coffee" → [spoken immediately]
+  User selects: "please" → [spoken immediately]
+  ```
+
+#### 2. Aggregated/Composed Mode
+- **Behavior**: Selected words are collected into a text display for composition
+- **Use Case**: Complex sentences, thoughtful communication, written output
+- **Features**:
+  - **Text Display Bar**: Shows accumulated text at top of interface
+  - **Speak Button**: User triggers speech when ready
+  - **Copy to Clipboard**: Export text for use in other applications
+  - **Edit Controls**:
+    - Backspace/delete last word
+    - Clear all text
+    - Edit individual words
+  - **Auto-save**: Text persists if app is closed/refreshed
+- **Example Flow**:
+  ```
+  User selects: "I want" → [added to display]
+  User selects: "to go" → [added to display]
+  User selects: "outside" → [added to display]
+  Text display: "I want to go outside"
+  User clicks [Speak] → [full sentence spoken]
+  User clicks [Copy] → [text copied to clipboard]
+  ```
+
+### Option Regeneration
+
+Users can request new suggestions at any time:
+
+- **Regenerate Button**: Available on main communication interface
+- **Behavior**: Requests fresh predictions from LLM with current context
+- **Use Cases**:
+  - Current options don't match intent
+  - Exploring different communication paths
+  - User wants more creative/varied suggestions
+- **Implementation**:
+  ```typescript
+  // User clicks "Regenerate Options"
+  POST /api/adapt/tiles
+  {
+    "userId": "uuid",
+    "regenerate": true,
+    "excludePrevious": ["coffee", "water", "help"], // Don't repeat recent suggestions
+    "currentContext": {...}
+  }
+  ```
 
 ## Key Implementation Details
 
@@ -434,14 +590,84 @@ interface MemoryPrivacySettings {
 }
 ```
 
+### TypeScript Type Definitions
+
+```typescript
+// Input modes
+type InputMode = 'click' | 'eye_tracking' | 'keyboard';
+
+// Speech output modes
+type SpeechMode = 'immediate' | 'aggregated';
+
+// Symbol/image sources
+type SymbolSource = 'opensymbols' | 'google' | 'unsplash' | 'custom';
+
+// Communication tile
+interface CommunicationTile {
+  id: string;
+  text: string;
+  symbolUrl?: string;
+  imageUrl?: string;
+  symbolSource: SymbolSource;
+  category: string;
+  priority: number;
+  reasoning?: string; // Why this was suggested
+}
+
+// Composed text state (for aggregated mode)
+interface ComposedText {
+  segments: TextSegment[];
+  fullText: string;
+  timestamp: Date;
+}
+
+interface TextSegment {
+  id: string;
+  text: string;
+  tileId?: string;
+  timestamp: Date;
+}
+
+// User preferences
+interface UserCommunicationSettings {
+  inputMode: InputMode;
+  speechMode: SpeechMode;
+  symbolSource: SymbolSource;
+  dwellTime: number; // milliseconds for eye tracking
+  tileCount: 4 | 6 | 8 | 9;
+  showRegenerateButton: 'always' | 'when_stuck' | 'never';
+  autoClearComposedText: boolean;
+  voiceId?: string;
+}
+
+// Regenerate request
+interface RegenerateRequest {
+  userId: string;
+  excludePrevious: string[];
+  currentContext: CommunicationContext;
+  requireDifferentCategories?: boolean;
+}
+
+interface CommunicationContext {
+  timeOfDay: string;
+  dayOfWeek: number;
+  recentMessages: string[];
+  currentCategory?: string;
+  composedText?: string; // Current text in aggregated mode
+  location?: string;
+}
+```
+
 ## Accessibility Considerations
 
 ### Visual + Text Design
-- **Tile Layout**: Image above, text below
-- **Image Clarity**: Simple, high-contrast images
+- **Tile Layout**: Symbol/image above, text below
+- **Symbol Library**: OpenSymbols as primary source (Mulberry, ARASAAC, etc.)
+- **Image Clarity**: Simple, high-contrast symbols and images
 - **Text Size**: Adjustable (default 18px minimum)
 - **Color Coding**: Optional category color borders
-- **Symbol Support**: Core vocabulary symbols (Boardmaker style)
+- **Consistency**: Same symbol for same word across sessions
+- **Fallback Hierarchy**: OpenSymbols → Google Images → Unsplash → Text-only
 
 ### Cognitive Accessibility
 - **Consistent Layout**: Predictable interface structure
@@ -451,13 +677,19 @@ interface MemoryPrivacySettings {
 - **Reduced Cognitive Load**: Limit choices to 4-8 tiles at once
 
 ### Settings to Expose
-- Number of tiles displayed (4, 6, 8, 9)
-- Image size (small, medium, large, off)
-- Text size
-- Category depth (show subcategories or not)
-- Prediction aggressiveness (conservative to creative)
-- Learning rate (slow, medium, fast)
-- Memory review frequency
+- **Input Method**: Click/touch, eye tracking, keyboard
+- **Speech Mode**: Immediate or aggregated
+- **Symbol/Image Preference**: OpenSymbols, photos, or mixed
+- **Number of tiles displayed**: 4, 6, 8, 9
+- **Image/Symbol size**: Small, medium, large, off
+- **Text size**: Small, medium, large, extra large
+- **Dwell time** (eye tracking): 500ms - 3000ms
+- **Category depth**: Show subcategories or not
+- **Prediction aggressiveness**: Conservative to creative
+- **Learning rate**: Slow, medium, fast
+- **Memory review frequency**: Daily, weekly, monthly
+- **Auto-clear composed text**: Yes/no (for aggregated mode)
+- **Show regenerate button**: Always, when stuck, never
 
 ## Environment Variables
 ```bash
@@ -485,14 +717,20 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### Phase 1: Core AAC Interface (2-3 weeks)
 - [ ] Basic Next.js setup with Tailwind
+- [ ] OpenSymbols integration and local symbol library
+- [ ] Click/touch input handler
+- [ ] Keyboard input mode with navigation
 - [ ] Eye tracking calibration
-- [ ] Tile-based interface (text + images)
-- [ ] Google Custom Search integration
-- [ ] Image caching system
+- [ ] Tile-based interface (text + symbols/images)
+- [ ] Immediate speech mode with TTS
+- [ ] Aggregated/composed mode with text display bar
+- [ ] Speak button for aggregated mode
+- [ ] Copy to clipboard functionality
+- [ ] Regenerate options button
+- [ ] Google Custom Search integration (fallback)
+- [ ] Image/symbol caching system
 - [ ] Category navigation
-- [ ] Basic text-to-speech
-- [ ] Keyboard input mode
-- [ ] Pre-cache common 100 words
+- [ ] Pre-cache common 100 AAC words with OpenSymbols
 
 ### Phase 2: Memory & Learning (3-4 weeks)
 - [ ] Supabase with pgvector setup
@@ -620,14 +858,16 @@ describe('Memory Service', () => {
 - Sarah reviews her memories weekly and enjoys seeing what the app has learned
 
 ## Resources & Links
-- [WebGazer.js Documentation](https://webgazer.cs.brown.edu/)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Supabase pgvector Guide](https://supabase.com/docs/guides/ai/vector-columns)
-- [Google Custom Search API](https://developers.google.com/custom-search/v1/overview)
-- [Unsplash API](https://unsplash.com/documentation)
-- [ElevenLabs API](https://docs.elevenlabs.io/)
-- [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
-- [AAC Research](https://www.asha.org/practice-portal/professional-issues/augmentative-and-alternative-communication/)
+- [OpenSymbols Library](https://github.com/open-aac/opensymbols) - Open-source AAC symbol sets
+- [WebGazer.js Documentation](https://webgazer.cs.brown.edu/) - Eye tracking library
+- [Next.js Documentation](https://nextjs.org/docs) - React framework
+- [Supabase pgvector Guide](https://supabase.com/docs/guides/ai/vector-columns) - Vector database
+- [Google Custom Search API](https://developers.google.com/custom-search/v1/overview) - Image search
+- [Unsplash API](https://unsplash.com/documentation) - Photo library
+- [ElevenLabs API](https://docs.elevenlabs.io/) - Text-to-speech
+- [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/) - Accessibility standards
+- [AAC Research](https://www.asha.org/practice-portal/professional-issues/augmentative-and-alternative-communication/) - Clinical guidelines
+- [Clipboard API](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API) - Browser clipboard access
 
 ## Contributing
 When developing memory/learning features:
