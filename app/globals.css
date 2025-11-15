@@ -1,15 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --tile-bg: #a6c9a9;
+  --tile-border: #6c4f4f;
+  --tile-bg2: #bcc9d1;
+  --tile-text: #0f073e;
+}
+
+.high-contrast {
+  --tile-bg: #ddffef;
+  --tile-border: #08132d;
+  --tile-bg2: #ffd5d5;
+  --tile-text: #120029;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --tile-bg: #a6c9a9;
+  --tile-border: #6c4f4f;
+  --tile-bg2: #bcc9d1;
+  --tile-text: #0f073e;
+}
 }
 
 body {
@@ -25,19 +36,15 @@ body {
 }
 
 /* High contrast mode */
-.high-contrast {
-  --background: #000000;
-  --foreground: #ffffff;
-}
 
 .high-contrast button,
 .high-contrast .tile {
-  border: 3px solid #ffffff;
+  border: 3px solid #ff00ae;
 }
 
 /* Accessibility - focus styles */
 *:focus-visible {
-  outline: 3px solid #0066cc;
+  outline: 3px solid #4a93dc;
   outline-offset: 2px;
 }
 

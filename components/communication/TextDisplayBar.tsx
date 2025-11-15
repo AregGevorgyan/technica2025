@@ -9,7 +9,7 @@ interface TextDisplayBarProps {
   onBackspace: () => void;
   onSpeak: () => void;
   onCopy: () => void;
-  isSpeaking?: boolean;
+  isSpeaking: boolean;
 }
 
 export default function TextDisplayBar({
@@ -18,73 +18,62 @@ export default function TextDisplayBar({
   onBackspace,
   onSpeak,
   onCopy,
-  isSpeaking = false,
+  isSpeaking,
 }: TextDisplayBarProps) {
   return (
-    <div className="w-full bg-white border-b-4 border-blue-500 shadow-lg p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Text Display */}
-        <div className="min-h-[80px] mb-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+    <div className="bg-[var(--tile-bg)] border-b-2 border-[var(--tile-border)] shadow-md p-3 md:p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Text Display Area */}
+        <div className="bg-[var(--tile-bg2)] rounded-lg p-4 md:p-6 mb-3 min-h-[80px] md:min-h-[100px]">
           {composedText.fullText ? (
-            <p className="text-2xl text-gray-900 leading-relaxed">
+            <p className="text-lg md:text-2xl text-[var(--tile-text)] leading-relaxed">
               {composedText.fullText}
             </p>
           ) : (
-            <p className="text-xl text-gray-400 italic">
-              Select words to compose a message...
+            <p className="text-lg md:text-xl text-[var(--tile-text)] italic">
+              Select words to compose your message...
             </p>
           )}
         </div>
 
-        {/* Control Buttons */}
-        <div className="flex gap-3 flex-wrap">
-          {/* Speak Button */}
-          <button
-            onClick={onSpeak}
-            disabled={!composedText.fullText || isSpeaking}
-            className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors"
-          >
-            <span className="text-2xl">{isSpeaking ? '🔊' : '🔈'}</span>
-            {isSpeaking ? 'Speaking...' : 'Speak'}
-          </button>
-
-          {/* Copy Button */}
-          <button
-            onClick={onCopy}
-            disabled={!composedText.fullText}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors"
-          >
-            <span className="text-2xl">📋</span>
-            Copy
-          </button>
-
-          {/* Backspace Button */}
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 justify-center">
           <button
             onClick={onBackspace}
             disabled={composedText.segments.length === 0}
-            className="flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors"
+            className="px-4 md:px-6 py-2 md:py-3 bg-[var(--tile-bg)] hover:bg-gray-700 disabled:bg-[var(--tile-bg)] disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
+            aria-label="Remove last word"
           >
-            <span className="text-2xl">⌫</span>
-            Backspace
+            ⌫ Backspace
           </button>
 
-          {/* Clear Button */}
           <button
             onClick={onClear}
             disabled={composedText.segments.length === 0}
-            className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors"
+            className="px-4 md:px-6 py-2 md:py-3 bg-red-600 hover:bg-[var(--tile-bg)] disabled:bg-[var(--tile-bg)] disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
+            aria-label="Clear all text"
           >
-            <span className="text-2xl">🗑️</span>
-            Clear
+            🗑️ Clear
+          </button>
+
+          <button
+            onClick={onSpeak}
+            disabled={!composedText.fullText || isSpeaking}
+            className="px-4 md:px-6 py-2 md:py-3 bg-[var(--tile-bg)] hover:bg-[var(--tile-bg)] disabled:bg-[var(--tile-bg)] disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
+            aria-label="Speak the text"
+          >
+            {isSpeaking ? '🔊 Speaking...' : '🔊 Speak'}
+          </button>
+
+          <button
+            onClick={onCopy}
+            disabled={!composedText.fullText}
+            className="px-4 md:px-6 py-2 md:py-3 bg-[var(--tile-bg)] hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
+            aria-label="Copy text to clipboard"
+          >
+            📋 Copy
           </button>
         </div>
-
-        {/* Word Count */}
-        {composedText.segments.length > 0 && (
-          <div className="mt-2 text-sm text-gray-500">
-            {composedText.segments.length} word{composedText.segments.length !== 1 ? 's' : ''}
-          </div>
-        )}
       </div>
     </div>
   );

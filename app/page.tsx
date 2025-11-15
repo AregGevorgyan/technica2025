@@ -2,13 +2,15 @@ import Link from 'next/link';
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-blue-50 to-white">
-      <div className="max-w-2xl w-full space-y-8 text-center">
+    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-[var(--background)] text-[var(--foreground)]">
+      <div
+        className="p-8 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow border-2 border-[var(--foreground)] hover:border-[var(--foreground)]/70"
+      >
         <h1 className="text-5xl font-bold text-gray-900 mb-4">
-          Adaptive AAC
+          Eye Select
         </h1>
         <p className="text-xl text-gray-600 mb-8">
-          Intelligent communication that learns and adapts to you
+          An AAC Website Which Grows With Your Needs
         </p>
 
         <div className="grid md:grid-cols-2 gap-6 mt-12">
