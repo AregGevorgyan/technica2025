@@ -23,16 +23,9 @@
   pointer-events: none;
 }
 
+/* Hide the EyeGestures logo to prevent blocking UI elements */
 #logoDivEyeGestures {
-  transition: transform 0.2s;
-}
-
-#logoDivEyeGestures:hover {
-  transform: scale(1.01);
-}
-
-#logoDivEyeGestures:active {
-  transform: scale(1.0);
+  display: none !important;
 }
 
 /* Canvas for MediaPipe face mesh visualization (optional, usually hidden) */

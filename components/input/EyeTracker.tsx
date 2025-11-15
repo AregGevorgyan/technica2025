@@ -26,7 +26,7 @@ interface EyeTrackerProps {
 export default function EyeTracker({
   enabled,
   dwellTime = 1500,
-  showPreview = true,
+  showPreview = false,
   onGazeUpdate,
   onDwellComplete,
   children,

@@ -9,6 +9,7 @@ import CategoryBrowser from '@/components/communication/CategoryBrowser';
 import EyeTracker from '@/components/input/EyeTracker';
 import { CommunicationTile, ComposedText, Category, TextSegment } from '@/types/communication';
 import { DwellDetector } from '@/lib/input/gaze-utils';
+import { showVideoPreview } from '@/lib/input/eyegestures-init';
 
 // Mock categories for demo
 const DEFAULT_CATEGORIES: Category[] = [
@@ -48,6 +49,7 @@ function CommunicatePageContent() {
   const [gazingTileId, setGazingTileId] = useState<string | undefined>();
   const [gazeProgress, setGazeProgress] = useState(0);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
   const dwellDetector = useRef(new DwellDetector());
   const heatmapInstance = useRef<any>(null);
@@ -234,6 +236,24 @@ function CommunicatePageContent() {
     }
   }, [showHeatmap]);
 
+  // Toggle camera view
+  useEffect(() => {
+    if (eyeTrackingEnabled) {
+      showVideoPreview(showCamera);
+    }
+  }, [showCamera, eyeTrackingEnabled]);
+
+  // Ensure camera is hidden when page first loads
+  useEffect(() => {
+    if (eyeTrackingEnabled && !showCamera) {
+      // Give initialization time to complete, then force hide
+      const timeout = setTimeout(() => {
+        showVideoPreview(false);
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [eyeTrackingEnabled]);
+
   // Eye tracking gaze update handler
   const handleGazeUpdate = useCallback((x: number, y: number) => {
     if (!eyeTrackingEnabled) return;
@@ -375,23 +395,35 @@ function CommunicatePageContent() {
       className="min-h-screen flex flex-col bg-gray-100 w-full overflow-x-hidden"
       style={{ position: 'relative', width: '100vw', height: '100vh' }}
     >
-      {/* Heatmap toggle button (bottom right corner) */}
+      {/* Debug toggle buttons (bottom right corner) */}
       {eyeTrackingEnabled && (
-        <button
-          onClick={() => {
-            setShowHeatmap(!showHeatmap);
-            if (showHeatmap) {
-              heatmapData.current = []; // Clear data when disabling
-            }
-          }}
-          className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
-            showHeatmap
-              ? 'bg-orange-600 text-white hover:bg-orange-700'
-              : 'bg-gray-800 text-white hover:bg-gray-900'
-          }`}
-        >
-          {showHeatmap ? '🔥 Heatmap ON' : '🔥 Debug Heatmap'}
-        </button>
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              setShowHeatmap(!showHeatmap);
+              if (showHeatmap) {
+                heatmapData.current = []; // Clear data when disabling
+              }
+            }}
+            className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+              showHeatmap
+                ? 'bg-orange-600 text-white hover:bg-orange-700'
+                : 'bg-gray-800 text-white hover:bg-gray-900'
+            }`}
+          >
+            {showHeatmap ? '🔥 Heatmap ON' : '🔥 Debug Heatmap'}
+          </button>
+          <button
+            onClick={() => setShowCamera(!showCamera)}
+            className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+              showCamera
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-800 text-white hover:bg-gray-900'
+            }`}
+          >
+            {showCamera ? '📹 Camera ON' : '📹 Debug Camera'}
+          </button>
+        </div>
       )}
 
       {/* Header */}

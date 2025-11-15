@@ -61,6 +61,13 @@ async function loadDependencies(): Promise<void> {
 export async function initializeEyeGestures(videoElementId: string = 'video'): Promise<boolean> {
   if (isInitialized && eyeGesturesInstance) {
     console.log('EyeGestures already initialized, reusing existing instance');
+
+    // Ensure video is hidden by default when reusing instance
+    const videoElement = document.getElementById(videoElementId) as HTMLVideoElement;
+    if (videoElement) {
+      videoElement.style.display = 'none';
+    }
+
     return true;
   }
 
@@ -125,6 +132,13 @@ export async function initializeEyeGestures(videoElementId: string = 'video'): P
     // Note: EyeGesturesLite's start() method shows calibration UI automatically
     // It displays 20 calibration points that the user must look at
     console.log('EyeGesturesLite initialized successfully');
+
+    // Ensure video is hidden by default (will be shown via showVideoPreview if needed)
+    const videoElement = document.getElementById(videoElementId) as HTMLVideoElement;
+    if (videoElement) {
+      videoElement.style.display = 'none';
+    }
+
     isInitialized = true;
     return true;
   } catch (error) {
@@ -246,11 +260,26 @@ export async function startEyeGestures(skipCalibrationIfAlreadyCalibrated: boole
     console.log('Eye tracking already calibrated, skipping recalibration');
     // The instance is already running and calibrated, just make sure cursor is visible
     showGazeCursor();
+
+    // Force hide video element (in case it was shown before)
+    const videoElement = document.getElementById('video') as HTMLVideoElement;
+    if (videoElement) {
+      videoElement.style.display = 'none';
+    }
+
     return;
   }
 
   // This will show the calibration instructions and start the 25-point calibration
   eyeGesturesInstance.start();
+
+  // Force hide video element after starting (unless explicitly shown by user)
+  setTimeout(() => {
+    const videoElement = document.getElementById('video') as HTMLVideoElement;
+    if (videoElement) {
+      videoElement.style.display = 'none';
+    }
+  }, 100);
 }
 
 // Recalibrate (restart calibration process)

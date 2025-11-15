@@ -11,6 +11,7 @@ import {
   removeGazeListener,
   removeAllGazeListeners,
   recalibrateEyeGestures,
+  showVideoPreview,
 } from '@/lib/input/eyegestures-init';
 
 export default function CalibratePage() {
@@ -21,6 +22,7 @@ export default function CalibratePage() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState({ current: 0, total: 25, percentage: 0 });
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const heatmapInstance = useRef<any>(null);
   const heatmapData = useRef<Array<{ x: number; y: number; value: number }>>([]);
 
@@ -127,6 +129,11 @@ export default function CalibratePage() {
       removeGazeListener(handleGazeForHeatmap);
     };
   }, [showHeatmap, handleGazeForHeatmap]);
+
+  // Toggle camera view
+  useEffect(() => {
+    showVideoPreview(showCamera);
+  }, [showCamera]);
 
   // Monitor calibration progress
   useEffect(() => {
@@ -242,22 +249,34 @@ export default function CalibratePage() {
       className="min-h-screen bg-gradient-to-b from-purple-50 to-white"
       style={{ position: 'relative', width: '100vw', minHeight: '100vh' }}
     >
-      {/* Heatmap toggle button (bottom left corner) */}
-      <button
-        onClick={() => {
-          setShowHeatmap(!showHeatmap);
-          if (showHeatmap) {
-            heatmapData.current = []; // Clear data when disabling
-          }
-        }}
-        className={`fixed bottom-4 left-4 z-50 px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
-          showHeatmap
-            ? 'bg-orange-600 text-white hover:bg-orange-700'
-            : 'bg-gray-800 text-white hover:bg-gray-900'
-        }`}
-      >
-        {showHeatmap ? '🔥 Heatmap ON' : '🔥 Debug Heatmap'}
-      </button>
+      {/* Debug toggle buttons (bottom left corner) */}
+      <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2">
+        <button
+          onClick={() => {
+            setShowHeatmap(!showHeatmap);
+            if (showHeatmap) {
+              heatmapData.current = []; // Clear data when disabling
+            }
+          }}
+          className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+            showHeatmap
+              ? 'bg-orange-600 text-white hover:bg-orange-700'
+              : 'bg-gray-800 text-white hover:bg-gray-900'
+          }`}
+        >
+          {showHeatmap ? '🔥 Heatmap ON' : '🔥 Debug Heatmap'}
+        </button>
+        <button
+          onClick={() => setShowCamera(!showCamera)}
+          className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+            showCamera
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-800 text-white hover:bg-gray-900'
+          }`}
+        >
+          {showCamera ? '📹 Camera ON' : '📹 Debug Camera'}
+        </button>
+      </div>
 
       {!isCalibrating && !calibrationComplete && (
         <div className="container mx-auto px-4 py-4 md:py-8 lg:py-16 max-w-3xl relative z-40">
