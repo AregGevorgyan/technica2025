@@ -27,16 +27,16 @@ export default function TextDisplayBar({
 }: TextDisplayBarProps) {
   const { gazingTileId, gazeProgress } = gazeData || { gazingTileId: undefined, gazeProgress: 0 };
   return (
-    <div className="w-full bg-white border-b-4 border-blue-500 shadow-lg p-4">
+    <div className="w-full bg-[var(--background2)] border-b-4 border-[var(--border)] shadow-lg p-4">
       <div className="max-w-6xl mx-auto">
         {/* Text Display */}
-        <div className="min-h-[80px] mb-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+        <div className="min-h-[80px] mb-4 p-4 bg-[var(--background3)] rounded-lg border-2 border-[var(--border)]">
           {composedText.fullText ? (
-            <p className="text-2xl text-gray-900 leading-relaxed">
+            <p className="text-2xl text-[var(--text)] leading-relaxed">
               {composedText.fullText}
             </p>
           ) : (
-            <p className="text-xl text-gray-400 italic">
+            <p className="text-xl text-[var(--border)] italic">
               Select words to compose a message...
             </p>
           )}

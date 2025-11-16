@@ -54,10 +54,10 @@ export default function SymbolTile({
       className={`
         ${sizeClasses[size]}
         relative flex flex-col items-center justify-center gap-2 p-3 md:p-4
-        bg-white rounded-xl shadow-md
+        bg-[var(--background)] rounded-xl shadow-md
         hover:shadow-lg hover:scale-105
         transition-all duration-200
-        border-2 ${highContrast ? 'border-black' : 'border-gray-200'}
+        border-2 ${highContrast ? 'border-[var(--border)]' : 'border-[var(--border2)]'}
         ${isGazing ? 'ring-4 ring-blue-500' : ''}
         focus:outline-none focus:ring-4 focus:ring-blue-400
       `}
@@ -67,7 +67,7 @@ export default function SymbolTile({
       {isGazing && gazeProgress > 0 && (
         <div className="absolute inset-0 rounded-xl overflow-hidden">
           <div
-            className="absolute inset-0 bg-blue-200 opacity-30"
+            className="absolute inset-0 bg-[var(--background2)] opacity-30"
             style={{
               clipPath: `circle(${gazeProgress}% at 50% 50%)`,
               transition: 'clip-path 50ms linear',
@@ -91,13 +91,13 @@ export default function SymbolTile({
       )}
 
       {/* Text */}
-      <span className={`font-semibold text-center ${highContrast ? 'text-black' : 'text-gray-800'}`}>
+      <span className={`font-semibold text-center ${highContrast ? 'text-[var(--text)]' : 'text-[var(--text)]'}`}>
         {tile.text}
       </span>
 
       {/* Category badge (optional) */}
       {tile.category && (
-        <span className="absolute top-1 right-1 text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+        <span className="absolute top-1 right-1 text-xs bg-[var(--background)] px-2 py-0.5 rounded-full text-[var(--text)]">
           {tile.category}
         </span>
       )}

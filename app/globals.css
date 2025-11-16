@@ -1,14 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fefaff;
+  --background2: #efefff;
+  --background3: #cccccc;
+  --background4: #a5a5a5;
+  --foreground: #161119;
+  --border: #9e8ca5;
+  --text: #000000;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #fefaff;
+    --background2: #efefff;
+    --background3: #cccccc;
+    --background4: #a5a5a5;
+    --foreground: #161119;
+    --border: #9e8ca5;
+    --text: #000000;
   }
 }
 
@@ -16,6 +26,7 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+  text-emphasis-color: var(--text);
 }
 
 @layer utilities {
@@ -26,8 +37,13 @@ body {
 
 /* High contrast mode */
 .high-contrast {
-  --background: #000000;
-  --foreground: #ffffff;
+  --background: #ffffff;
+  --background2: #ffffff;
+  --background3: #a5a5a5;
+  --background4: #a5a5a5;
+  --foreground: #000000;
+  --border: #6c6c6c;
+  --text: #000000;
 }
 
 .high-contrast button,

@@ -2,10 +2,10 @@ import Link from 'next/link';
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-blue-50 to-white">
+    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-[var(--background)] to-[var(--background2)]">
       <div className="max-w-2xl w-full space-y-8 text-center">
         <h1 className="text-5xl font-bold text-gray-900 mb-4">
-          Adaptive AAC
+          Eye Select
         </h1>
         <p className="text-xl text-gray-600 mb-8">
           Intelligent communication that learns and adapts to you
