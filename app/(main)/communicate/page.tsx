@@ -427,19 +427,19 @@ function CommunicatePageContent() {
       )}
 
       {/* Header */}
-      <div className="bg-[var(--tile-bg2)] shadow-md p-3 md:p-4">
+      <div className="bg-white shadow-md p-3 md:p-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <h1 className="text-xl md:text-2xl font-bold text-[var(--tile-text)]">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">
             Adaptive AAC {eyeTrackingEnabled && '👁️'}
           </h1>
 
           <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center">
             {/* Speech Mode Toggle */}
-            <div className="flex bg-[var(--tile-bg)] rounded-lg p-1">
+            <div className="flex bg-gray-200 rounded-lg p-1">
               <button
                 onClick={() => setSpeechMode('immediate')}
                 className={`px-2 md:px-4 py-2 rounded-md text-xs md:text-sm font-semibold transition-colors ${
-                  speechMode === 'immediate' ? 'bg-[var(--tile-bg)] shadow' : 'text-[var(--tile-text)]'
+                  speechMode === 'immediate' ? 'bg-white shadow' : 'text-gray-600'
                 }`}
               >
                 Immediate
@@ -447,7 +447,7 @@ function CommunicatePageContent() {
               <button
                 onClick={() => setSpeechMode('aggregated')}
                 className={`px-2 md:px-4 py-2 rounded-md text-xs md:text-sm font-semibold transition-colors ${
-                  speechMode === 'aggregated' ? 'bg-[var(--tile-bg)] shadow' : 'text-[var(--tile-text)]'
+                  speechMode === 'aggregated' ? 'bg-white shadow' : 'text-gray-600'
                 }`}
               >
                 Compose
@@ -457,7 +457,7 @@ function CommunicatePageContent() {
             {/* Categories Button */}
             <button
               onClick={() => setShowCategories(!showCategories)}
-              className="px-3 md:px-4 py-2 bg-[var(--tile-bg)] hover:bg-[var(--tile-bg)] text-[var(--tile-text)] text-xs md:text-sm font-semibold rounded-lg"
+              className="px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-semibold rounded-lg"
             >
               Categories
             </button>
@@ -511,7 +511,7 @@ function CommunicatePageContent() {
       <RegenerateButton onClick={handleRegenerate} isLoading={isLoading} />
 
       {/* Footer hint */}
-      <div className="bg-[var(--tile-bg)] border-t p-3 md:p-4 text-center text-xs md:text-sm text-[var(--tile-text)]">
+      <div className="bg-white border-t p-3 md:p-4 text-center text-xs md:text-sm text-gray-600">
         {eyeTrackingEnabled
           ? `Gaze at any tile for ${settings.dwellTime / 1000} seconds to select it`
           : speechMode === 'immediate'
@@ -541,8 +541,8 @@ export default function CommunicatePage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--tile-border)] mx-auto mb-4" />
-          <p className="text-[var(--tile-text)]">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     }>

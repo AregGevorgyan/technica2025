@@ -17,20 +17,20 @@ export default function CategoryBrowser({
   onBack,
 }: CategoryBrowserProps) {
   return (
-    <div className="w-full bg-[var(--tile-bg)] border-b-2 border-[var(--tile-border)] p-4">
+    <div className="w-full bg-gray-50 border-b-2 border-gray-200 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 mb-4">
           {onBack && (
             <button
               onClick={onBack}
-              className="px-4 py-2 bg-[var(--tile-bg)] hover:bg-gray-300 rounded-lg font-semibold"
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold"
             >
               ← Back
             </button>
           )}
           {currentCategory && (
-            <span className="text-lg font-semibold text-[var(--tile-text)]">
+            <span className="text-lg font-semibold text-gray-700">
               {currentCategory.icon} {currentCategory.name}
             </span>
           )}
@@ -42,10 +42,10 @@ export default function CategoryBrowser({
             <button
               key={category.id}
               onClick={() => onCategorySelect(category)}
-              className="flex flex-col items-center justify-center gap-2 p-4 bg-[var(--tile-bg)] rounded-lg shadow hover:shadow-md transition-shadow border-2 border-[var(--tile-border)] hover:border-blue-400"
+              className="flex flex-col items-center justify-center gap-2 p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow border-2 border-gray-200 hover:border-blue-400"
             >
               <span className="text-4xl">{category.icon}</span>
-              <span className="text-sm font-semibold text-[var(--tile-text)]">{category.name}</span>
+              <span className="text-sm font-semibold text-gray-700">{category.name}</span>
             </button>
           ))}
         </div>
