@@ -1,6 +1,6 @@
-// ElevenLabs Text-to-Speech implementation
+// ElevenLabs Text-to-Speech implementation (Client-side)
+// API key is now securely stored on the server and accessed via API route
 
-const ELEVENLABS_API_KEY = 'sk_223d40be254c38d4b2ea211eea6aefae2779fc7c784dbff8';
 const ELEVENLABS_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // Rachel - warm, friendly voice
 
 export interface TTSOptions {
@@ -21,32 +21,27 @@ export async function speakWithElevenLabs(options: TTSOptions): Promise<void> {
   try {
     console.log('🎤 ElevenLabs TTS: Requesting speech for:', text);
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': ELEVENLABS_API_KEY,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_monolingual_v1',
-          voice_settings: {
-            stability,
-            similarity_boost: similarityBoost,
-          },
-        }),
-      }
-    );
+    // Call our API route instead of ElevenLabs directly
+    // This keeps the API key secure on the server
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        voiceId,
+        stability,
+        similarityBoost,
+      }),
+    });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'TTS request failed');
     }
 
-    // Get audio blob
+    // Get audio blob from our API
     const audioBlob = await response.blob();
     console.log('✅ ElevenLabs: Audio received, size:', audioBlob.size, 'bytes');
 
@@ -81,5 +76,7 @@ export async function speakWithElevenLabs(options: TTSOptions): Promise<void> {
 }
 
 export function isElevenLabsAvailable(): boolean {
-  return !!ELEVENLABS_API_KEY;
+  // We can't check the API key from client-side anymore
+  // This will always return true, and the API route will handle availability
+  return true;
 }

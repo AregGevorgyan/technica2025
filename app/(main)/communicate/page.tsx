@@ -10,6 +10,7 @@ import EyeTracker from '@/components/input/EyeTracker';
 import { CommunicationTile, ComposedText, Category, TextSegment } from '@/types/communication';
 import { DwellDetector } from '@/lib/input/gaze-utils';
 import { showVideoPreview } from '@/lib/input/eyegestures-init';
+import { getWordImagePath } from '@/lib/symbols/wordimage-mapper';
 
 // Mock categories for demo
 const DEFAULT_CATEGORIES: Category[] = [
@@ -21,14 +22,14 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: 'questions', name: 'Questions', icon: '❓', commonPhrases: ['what', 'where', 'when', 'why'] },
 ];
 
-// Mock tiles for demo
+// Mock tiles for demo - enhanced with wordimages
 const MOCK_TILES: CommunicationTile[] = [
-  { id: '1', text: 'I want', category: 'social', priority: 0.9, symbolSource: 'opensymbols' },
-  { id: '2', text: 'water', category: 'needs', priority: 0.85, symbolSource: 'opensymbols' },
-  { id: '3', text: 'help', category: 'needs', priority: 0.8, symbolSource: 'opensymbols' },
-  { id: '4', text: 'please', category: 'social', priority: 0.75, symbolSource: 'opensymbols' },
-  { id: '5', text: 'thank you', category: 'social', priority: 0.7, symbolSource: 'opensymbols' },
-  { id: '6', text: 'yes', category: 'social', priority: 0.65, symbolSource: 'opensymbols' },
+  { id: '1', text: 'want', category: 'social', priority: 0.9, symbolSource: 'custom', symbolUrl: getWordImagePath('want') },
+  { id: '2', text: 'help', category: 'needs', priority: 0.85, symbolSource: 'custom', symbolUrl: getWordImagePath('help') },
+  { id: '3', text: 'yes', category: 'social', priority: 0.8, symbolSource: 'custom', symbolUrl: getWordImagePath('yes') },
+  { id: '4', text: 'no', category: 'social', priority: 0.75, symbolSource: 'custom', symbolUrl: getWordImagePath('no') },
+  { id: '5', text: 'happy', category: 'feelings', priority: 0.7, symbolSource: 'custom', symbolUrl: getWordImagePath('happy') },
+  { id: '6', text: 'eat', category: 'needs', priority: 0.65, symbolSource: 'custom', symbolUrl: getWordImagePath('eat') },
 ];
 
 function CommunicatePageContent() {
@@ -50,10 +51,17 @@ function CommunicatePageContent() {
   const [gazeProgress, setGazeProgress] = useState(0);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [selectionCount, setSelectionCount] = useState(0);
+  const [recentSelections, setRecentSelections] = useState<string[]>([]);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
 
   const dwellDetector = useRef(new DwellDetector());
   const heatmapInstance = useRef<any>(null);
   const heatmapData = useRef<Array<{ x: number; y: number; value: number }>>([]);
+
+  // Automatic prediction settings
+  const AUTO_PREDICT_AFTER = 3; // Trigger prediction after every 3 selections
+  const MOCK_USER_ID = 'demo-user'; // In production, this would come from authentication
 
   // Settings (would come from user preferences in real app)
   const settings = {
@@ -64,8 +72,53 @@ function CommunicatePageContent() {
     dwellTime: 1500, // milliseconds
   };
 
+  // Fetch predictions from API
+  const fetchPredictions = useCallback(async (excludePrevious: string[] = []) => {
+    setIsLoading(true);
+    setPredictionError(null);
+
+    try {
+      const response = await fetch('/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: MOCK_USER_ID,
+          currentContext: {
+            timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
+            dayOfWeek: new Date().getDay(),
+            recentMessages: recentSelections.slice(-5),
+            currentCategory: selectedCategory?.id,
+            composedText: composedText.fullText,
+          },
+          excludePrevious,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch predictions');
+      }
+
+      const data = await response.json();
+      setTiles(data.tiles);
+      console.log('✅ New predictions loaded from Claude Haiku:', data.tiles.length);
+    } catch (error) {
+      console.error('❌ Failed to fetch predictions:', error);
+      setPredictionError(error instanceof Error ? error.message : 'Unknown error');
+
+      // Keep existing tiles on error
+      console.log('Keeping existing tiles due to error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [MOCK_USER_ID, recentSelections, selectedCategory, composedText.fullText]);
+
   const handleTileSelect = useCallback((tile: CommunicationTile) => {
     console.log('Tile selected via eye tracking or click:', tile.text);
+
+    // Track selection
+    setSelectionCount(prev => prev + 1);
+    setRecentSelections(prev => [...prev, tile.text].slice(-10)); // Keep last 10
 
     if (speechMode === 'immediate') {
       // Speak immediately
@@ -151,14 +204,17 @@ function CommunicatePageContent() {
   };
 
   const handleRegenerate = async () => {
-    setIsLoading(true);
-    // In real app, would call API to get new predictions
-    setTimeout(() => {
-      // Mock: shuffle tiles
-      setTiles([...tiles].sort(() => Math.random() - 0.5));
-      setIsLoading(false);
-    }, 1000);
+    console.log('🔄 User clicked Regenerate - fetching new predictions...');
+    await fetchPredictions(recentSelections.slice(-6)); // Exclude recent selections
   };
+
+  // Automatic prediction trigger after every few selections
+  useEffect(() => {
+    if (selectionCount > 0 && selectionCount % AUTO_PREDICT_AFTER === 0) {
+      console.log(`🤖 Auto-triggering prediction after ${selectionCount} selections`);
+      fetchPredictions(recentSelections.slice(-6));
+    }
+  }, [selectionCount, fetchPredictions, recentSelections]);
 
   const handleCategorySelect = (category: Category) => {
     setSelectedCategory(category);
@@ -510,6 +566,33 @@ function CommunicatePageContent() {
       {/* Regenerate Button */}
       <RegenerateButton onClick={handleRegenerate} isLoading={isLoading} />
 
+      {/* Prediction error banner */}
+      {predictionError && (
+        <div className="bg-yellow-50 border-t border-yellow-200 p-3 md:p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-start gap-2">
+              <span className="text-yellow-600 text-lg">⚠️</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-yellow-800">AI Predictions Not Available</p>
+                <p className="text-xs text-yellow-700 mt-1">{predictionError}</p>
+                {predictionError.includes('API key') && (
+                  <p className="text-xs text-yellow-700 mt-2">
+                    Add your <code className="bg-yellow-100 px-1 rounded">ANTHROPIC_API_KEY</code> to{' '}
+                    <code className="bg-yellow-100 px-1 rounded">.env.local</code> to enable AI-powered predictions.
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setPredictionError(null)}
+                className="text-yellow-600 hover:text-yellow-800 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Footer hint */}
       <div className="bg-white border-t p-3 md:p-4 text-center text-xs md:text-sm text-gray-600">
         {eyeTrackingEnabled
@@ -517,6 +600,12 @@ function CommunicatePageContent() {
           : speechMode === 'immediate'
           ? 'Tap any word to speak it immediately'
           : 'Select words to build a sentence, then tap Speak'}
+        {selectionCount > 0 && (
+          <span className="ml-2 text-blue-600">
+            • {selectionCount} selection{selectionCount !== 1 ? 's' : ''} made
+            {selectionCount % AUTO_PREDICT_AFTER === 0 && ' (predictions updated!)'}
+          </span>
+        )}
       </div>
     </div>
   );

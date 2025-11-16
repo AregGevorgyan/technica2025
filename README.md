@@ -27,10 +27,26 @@ Built for **Technica 2025**, this system combines cutting-edge eye tracking tech
 
 ### 🎯 **Eye Tracking Communication**
 - **Hands-Free Operation**: Communicate using only your eyes
-- **5-Point Calibration**: Quick, streamlined calibration process (~30 seconds)
+- **25-Point Calibration**: Automatic calibration with EyeGesturesLite (~1 minute)
 - **Dwell-Based Selection**: Look at a tile for 1.5 seconds to select it
 - **Visual Feedback**: Real-time gaze cursor and progress indicators
-- **Smooth Tracking**: Advanced smoothing algorithms for stable, accurate tracking
+- **Smooth Tracking**: Advanced EWMA smoothing algorithms for stable, accurate tracking
+- **Debug Tools**: Optional heatmap overlay and camera preview
+
+### 🤖 **AI-Powered Predictions (NEW!)**
+- **Claude Haiku Integration**: Fast, context-aware word suggestions
+- **Smart Image Matching**: 60 pre-loaded wordimages automatically matched
+- **Auto-Refresh**: Updates predictions after every 3 selections
+- **Context-Aware**: Considers time of day, recent words, and conversation flow
+- **Manual Regenerate**: Click button for fresh suggestions anytime
+- **Affordable**: ~$0.001 per prediction request
+
+### 🖼️ **Visual Communication**
+- **60 Wordimages**: Pre-loaded PNG symbols for common AAC vocabulary
+  - Emotions, actions, pronouns, social phrases, needs, animals
+- **Automatic Matching**: AI prioritizes words with available images
+- **High-Quality Symbols**: Clear, recognizable icons
+- **Fallback Support**: Text-only tiles when images unavailable
 
 ### 🗣️ **Communication Modes**
 - **Immediate Mode**: Speak each word as you select it
@@ -58,6 +74,7 @@ Built for **Technica 2025**, this system combines cutting-edge eye tracking tech
 Node.js 18+ and npm
 Modern web browser (Chrome recommended)
 Webcam for eye tracking
+Anthropic API Key (for AI predictions) - See setup guide below
 ```
 
 ### Installation
@@ -70,11 +87,27 @@ cd technica2025
 # Install dependencies
 npm install
 
+# Setup API key (REQUIRED for AI predictions)
+# See API_KEY_SETUP.md for detailed instructions
+# Quick version:
+# 1. Copy .env.example to .env.local
+# 2. Add your Anthropic API key to ANTHROPIC_API_KEY
+# 3. Get key at: https://console.anthropic.com/settings/keys
+
 # Run development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) and start communicating!
+
+### 🔑 API Key Setup (Required)
+
+**For AI-powered word predictions**, you need an Anthropic API key:
+
+📖 **Quick Guide**: See [API_KEY_SETUP.md](./API_KEY_SETUP.md) (2-minute setup)
+📚 **Full Guide**: See [SETUP_GUIDE.md](./SETUP_GUIDE.md) (comprehensive documentation)
+
+**TL;DR**: Get your API key at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) and add it to `.env.local`
 
 ## 👁️ Eye Tracking Setup
 
@@ -151,17 +184,29 @@ technica2025/
 │   ├── (main)/
 │   │   ├── calibrate/          # 👁️ Eye tracking calibration
 │   │   └── communicate/        # 💬 Main communication interface
-│   ├── api/                    # 🔌 API routes (future)
-│   └── page.tsx                # 🏠 Landing page
+│   ├── api/
+│   │   ├── predict/           # 🤖 Claude AI predictions
+│   │   ├── images/            # 🖼️ Image search & caching
+│   │   ├── tts/               # 🔊 Text-to-speech
+│   │   └── memory/            # 🧠 User memory learning
+│   └── page.tsx               # 🏠 Landing page
 ├── components/
-│   ├── communication/          # 🎯 Tile grid, text display
-│   └── input/                  # 👁️ Eye tracking handler
+│   ├── communication/         # 🎯 Tile grid, text display, regenerate
+│   ├── input/                 # 👁️ Eye tracking handler
+│   └── wordimages/            # 🖼️ 60 PNG symbols (moved to /public)
 ├── lib/
 │   ├── input/
-│   │   ├── webgazer-init.ts   # Eye tracking initialization
+│   │   ├── eyegestures-init.ts # EyeGesturesLite initialization
 │   │   └── gaze-utils.ts      # Smoothing & dwell detection
+│   ├── symbols/
+│   │   └── wordimage-mapper.ts # 🔗 Word-to-image mapping
 │   └── supabase/              # Database utilities
-└── types/                      # TypeScript definitions
+├── public/
+│   └── wordimages/            # 🖼️ 60 PNG symbol images
+├── types/                     # TypeScript definitions
+├── .env.local                 # 🔑 API keys (create this)
+├── API_KEY_SETUP.md          # 📖 Quick API setup guide
+└── SETUP_GUIDE.md            # 📚 Comprehensive setup documentation
 ```
 
 ## 🎨 Features Deep Dive
@@ -197,20 +242,24 @@ technica2025/
 ## 📊 Current Implementation Status
 
 ### ✅ Completed (Phase 1)
-- [x] Eye tracking with WebGazer.js integration
-- [x] 5-point streamlined calibration
+- [x] Eye tracking with EyeGesturesLite integration
+- [x] 25-point automatic calibration
 - [x] Dwell-based tile selection
 - [x] Immediate and Compose speech modes
 - [x] Text display with copy functionality
 - [x] Fully responsive design (mobile → desktop)
-- [x] Advanced gaze smoothing algorithms
-- [x] Visual feedback (gaze cursor, progress rings)
+- [x] Advanced EWMA gaze smoothing
+- [x] Visual feedback (gaze cursor, progress rings, heatmap)
+- [x] **Claude Haiku AI predictions** ⭐ NEW!
+- [x] **60 wordimages with automatic matching** ⭐ NEW!
+- [x] **Auto-refresh predictions every 3 selections** ⭐ NEW!
+- [x] **Context-aware word suggestions** ⭐ NEW!
 
 ### 🚧 In Progress (Phase 2)
 - [ ] Database integration (Supabase setup complete)
-- [ ] AI-powered predictions (Claude API ready)
-- [ ] Memory learning system
-- [ ] Symbol library integration
+- [ ] Memory learning system (user pattern analysis)
+- [ ] External image API integration (Google/Unsplash fallback)
+- [ ] Settings UI (adjustable parameters)
 
 ## 🤝 Contributing
 
@@ -237,10 +286,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 Having issues? Check our guides:
+- 🔑 **[API Key Setup](API_KEY_SETUP.md)** - Quick 2-minute guide (START HERE!)
+- 📚 **[Full Setup Guide](SETUP_GUIDE.md)** - Comprehensive documentation
 - 📖 [Eye Tracking Setup Guide](EYE_TRACKING_GUIDE.md)
 - 🐛 [Debugging Guide](EYE_TRACKING_DEBUG.md)
 - 💡 [Quick Start Guide](QUICKSTART.md)
-- 📋 [Full Documentation](CLAUDE.md)
+- 📋 [Full Project Documentation](CLAUDE.md)
 
 ## 🌐 Demo
 
