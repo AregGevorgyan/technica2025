@@ -1,6 +1,8 @@
 <div align="center">
 
-# 👁️ Adaptive AAC Eye Tracking System
+# 👁️ Eye AAC: Adaptive AAC Eye Tracking System
+
+# Website: [eye-acc.select](http://eye-acc.select/)
 
 ### Intelligent, Hands-Free Communication for Enhanced Accessibility
 
