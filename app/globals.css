@@ -17,15 +17,19 @@
 @media (prefers-color-scheme: dark) {
   :root {
   --tile-bg: #a6c9a9;
-  --tile-border: #6c4f4f;
   --tile-bg2: #bcc9d1;
+  --tile-border: #6c4f4f;
+  --tile-border2: #6c4f4f
+  --tile-border3: #6c4f4f
   --tile-text: #0f073e;
 }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  --tile-bg: #a6c9a9;
+  --tile-border: #6c4f4f;
+  --tile-bg2: #bcc9d1;
+  --tile-text: #0f073e;
   font-family: Arial, Helvetica, sans-serif;
 }
 
