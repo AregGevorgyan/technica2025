@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { getUserMemories } from '@/lib/supabase/queries';
+// import { getUserMemories } from '@/lib/supabase/queries'; // Temporarily disabled - database not configured
 import { CommunicationContext, PredictionResponse } from '@/types/communication';
 import { getWordImagePath, getAvailableWords } from '@/lib/symbols/wordimage-mapper';
 
@@ -26,49 +26,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch user memories for context (with error handling)
-    let memories: any[] = [];
-    try {
-      memories = await getUserMemories(userId, undefined, 20);
-    } catch (error) {
-      console.warn('Could not fetch user memories (database may not be configured):', error);
-      // Continue without memories
-    }
-
-    // Build context for Claude
-    const memoryContext = memories
-      .map((m) => `- ${m.content} (${m.memoryType})`)
-      .join('\n');
+    // User memories disabled until database is configured
+    const memoryContext = '';
+    console.log('ℹ️ User memories not available (database not configured). Using default context.');
 
     // Get list of available wordimages to help Claude prioritize them
     const availableWords = getAvailableWords();
     const wordImageHint = `\n\nAVAILABLE LOCAL IMAGES (prioritize these words when possible):\n${availableWords.slice(0, 30).join(', ')}...`;
 
-    const prompt = `You are an AAC communication assistant helping generate personalized communication options.
+    const prompt = `You are an AAC communication assistant helping predict the next SINGLE WORD for communication.
 
 USER MEMORIES:
 ${memoryContext || 'No memories yet - this is a new user.'}
 
 CURRENT CONTEXT:
 - Time: ${currentContext.timeOfDay || 'unknown'}, Day ${currentContext.dayOfWeek || 'unknown'}
-- Recent messages: ${currentContext.recentMessages?.join(', ') || 'None'}
+- Recent words selected: ${currentContext.recentMessages?.join(', ') || 'None'}
 - Current category: ${currentContext.currentCategory || 'General'}
-- Current text: ${currentContext.composedText || 'None'}
+- Current sentence being built: "${currentContext.composedText || 'None'}"
 
-Generate 6 helpful communication options that would be most relevant right now. Consider:
-1. Time of day (breakfast in morning, bedtime at night, etc.)
-2. Recent conversation flow
-3. User's known preferences and patterns
-4. Common needs and phrases
-5. PRIORITIZE words from the available local images list when possible
+Generate 6 SINGLE WORD predictions for what the user might want to say next. Consider:
+1. The current sentence context - what word would naturally come next
+2. Time of day (coffee/breakfast in morning, dinner/tired at night, etc.)
+3. Common AAC vocabulary (I, want, need, help, yes, no, food, water, etc.)
+4. PRIORITIZE words from the available local images list when possible
+5. Each option should be ONE WORD ONLY (not phrases or sentences)
 
-${excludePrevious.length > 0 ? `AVOID these recently shown options: ${excludePrevious.join(', ')}` : ''}
+${excludePrevious.length > 0 ? `AVOID these recently shown words: ${excludePrevious.join(', ')}` : ''}
 ${wordImageHint}
+
+IMPORTANT: Return SINGLE WORDS only. Examples: "want", "help", "eat", "happy", "tired", "yes"
+NOT: "I want to eat", "Can you help me", "I feel tired"
 
 Return ONLY a valid JSON array with this exact structure (no markdown, no explanation, no code blocks):
 [
   {
-    "text": "phrase text",
+    "text": "word",
     "category": "needs|feelings|social|activities|people|questions",
     "imageSearchTerm": "simple search term for image",
     "priority": 0.1-1.0
