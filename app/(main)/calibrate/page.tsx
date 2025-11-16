@@ -1,160 +1,325 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-
-// Reduced to 5 points for faster calibration
-const CALIBRATION_POINTS = [
-  { id: 1, x: 10, y: 10, label: 'Top Left' },
-  { id: 2, x: 90, y: 10, label: 'Top Right' },
-  { id: 3, x: 50, y: 50, label: 'Center' },
-  { id: 4, x: 10, y: 90, label: 'Bottom Left' },
-  { id: 5, x: 90, y: 90, label: 'Bottom Right' },
-];
+import {
+  initializeEyeGestures,
+  startEyeGestures,
+  stopEyeGestures,
+  getCalibrationProgress,
+  addGazeListener,
+  removeGazeListener,
+  removeAllGazeListeners,
+  recalibrateEyeGestures,
+  showVideoPreview,
+} from '@/lib/input/eyegestures-init';
 
 export default function CalibratePage() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationComplete, setCalibrationComplete] = useState(false);
-  const [webgazer, setWebgazer] = useState<any>(null);
-  const [clickCount, setClickCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState({ current: 0, total: 25, percentage: 0 });
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const heatmapInstance = useRef<any>(null);
+  const heatmapData = useRef<Array<{ x: number; y: number; value: number }>>([]);
 
+  // Initialize heatmap
   useEffect(() => {
-    // Load WebGazer
-    const loadWebGazer = async () => {
-      try {
-        const wg = (await import('webgazer')).default;
-        setWebgazer(wg);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Failed to load WebGazer:', error);
-        setIsLoading(false);
-      }
-    };
+    if (showHeatmap && !heatmapInstance.current && typeof window !== 'undefined') {
+      // Check if heatmap.js is already loaded
+      const h337 = (window as any).h337;
 
-    loadWebGazer();
+      const initHeatmap = () => {
+        const container = document.getElementById('heatmap-container');
+        if (!container) {
+          console.error('Heatmap container not found!');
+          return;
+        }
+
+        const h337Instance = (window as any).h337;
+        if (h337Instance) {
+          heatmapInstance.current = h337Instance.create({
+            container: container,
+            radius: 50,
+            maxOpacity: 0.6,
+            blur: 0.85,
+          });
+          console.log('✅ Heatmap initialized on calibration page');
+
+          // Style the heatmap canvas to be a transparent overlay
+          const canvas = container.querySelector('canvas');
+          if (canvas) {
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.pointerEvents = 'none';
+            canvas.style.zIndex = '10';
+          }
+        }
+      };
+
+      if (!h337) {
+        // Load heatmap.js if not already loaded
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/build/heatmap.min.js';
+        script.onload = () => {
+          initHeatmap();
+        };
+        script.onerror = () => {
+          console.error('Failed to load heatmap.js');
+        };
+        document.head.appendChild(script);
+      } else {
+        // Already loaded, initialize immediately
+        initHeatmap();
+      }
+    }
+
+    // Cleanup heatmap when disabled
+    if (!showHeatmap && heatmapInstance.current) {
+      // Remove the canvas element
+      const container = document.getElementById('heatmap-container');
+      if (container) {
+        const canvas = container.querySelector('canvas');
+        if (canvas) {
+          canvas.remove();
+        }
+      }
+      heatmapInstance.current = null;
+      heatmapData.current = [];
+    }
+  }, [showHeatmap]);
+
+  // Gaze listener for heatmap
+  const handleGazeForHeatmap = useCallback((data: { x: number; y: number; timestamp: number; calibrated: boolean }) => {
+    if (heatmapInstance.current && data && data.x != null && data.y != null) {
+      heatmapData.current.push({
+        x: parseInt(String(data.x)),
+        y: parseInt(String(data.y)),
+        value: 30,
+      });
+
+      // Keep only last 20 points for performance (like demo)
+      if (heatmapData.current.length > 20) {
+        heatmapData.current.shift();
+      }
+
+      heatmapInstance.current.setData({
+        max: 100,
+        data: heatmapData.current,
+      });
+    }
   }, []);
 
-  const startCalibration = async () => {
-    if (!webgazer) {
-      alert('Eye tracking library not loaded. Please refresh the page.');
-      return;
+  // Add/remove gaze listener when heatmap toggle changes
+  useEffect(() => {
+    if (showHeatmap) {
+      addGazeListener(handleGazeForHeatmap);
+      console.log('Added heatmap gaze listener');
+    } else {
+      removeGazeListener(handleGazeForHeatmap);
     }
 
-    setIsCalibrating(true);
-    setCurrentStep(0);
-    setClickCount(0);
+    return () => {
+      removeGazeListener(handleGazeForHeatmap);
+    };
+  }, [showHeatmap, handleGazeForHeatmap]);
 
-    // Initialize WebGazer
-    try {
-      await webgazer
-        .setGazeListener(() => {})
-        .begin();
+  // Toggle camera view
+  useEffect(() => {
+    showVideoPreview(showCamera);
+  }, [showCamera]);
 
-      webgazer.params.showVideoPreview = true;
-      webgazer.params.showFaceOverlay = false;
-      webgazer.params.showFaceFeedbackBox = true;
+  // Monitor calibration progress
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
 
-      // Position video preview in bottom right
-      setTimeout(() => {
-        const videoPreview = document.getElementById('webgazerVideoContainer');
-        if (videoPreview) {
-          videoPreview.style.position = 'fixed';
-          videoPreview.style.bottom = '20px';
-          videoPreview.style.right = '20px';
-          videoPreview.style.width = '240px';
-          videoPreview.style.height = '180px';
-          videoPreview.style.zIndex = '1000';
-          videoPreview.style.borderRadius = '12px';
-          videoPreview.style.overflow = 'hidden';
-          videoPreview.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+    if (isCalibrating) {
+      intervalId = setInterval(() => {
+        const currentProgress = getCalibrationProgress();
+        setProgress(currentProgress);
+
+        // Check if calibration is complete
+        if (currentProgress.percentage >= 100) {
+          setCalibrationComplete(true);
+          setIsCalibrating(false);
+          localStorage.setItem('eyeTrackingCalibrated', 'true');
+          clearInterval(intervalId);
         }
-      }, 100);
-    } catch (error) {
-      console.error('Failed to initialize WebGazer:', error);
-      alert('Failed to access webcam. Please check permissions and try again.');
-      setIsCalibrating(false);
+      }, 100); // Check every 100ms
     }
-  };
 
-  const handleCalibrationClick = (point: typeof CALIBRATION_POINTS[0]) => {
-    if (!isCalibrating || !webgazer) return;
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isCalibrating]);
 
-    const newClickCount = clickCount + 1;
-    setClickCount(newClickCount);
+  const startCalibration = async () => {
+    setIsLoading(true);
+    setError(null);
+    setCalibrationComplete(false);
 
-    // Play click sound feedback
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8ti');
-    audio.play().catch(() => {});
-
-    // Move to next point after current point is clicked enough times (3 clicks per point for better accuracy)
-    if (newClickCount >= 3) {
-      if (currentStep < CALIBRATION_POINTS.length - 1) {
-        setCurrentStep(currentStep + 1);
-        setClickCount(0);
-      } else {
-        completeCalibration();
+    try {
+      console.log('Starting calibration initialization...');
+      
+      // Initialize EyeGesturesLite
+      const success = await initializeEyeGestures('video');
+      
+      if (!success) {
+        throw new Error('Failed to initialize eye tracking. Please check browser console for details.');
       }
+
+      console.log('EyeGestures initialized');
+
+      console.log('Starting eye tracking...');
+      // Start calibration (will show built-in UI with 25 points)
+      await startEyeGestures();
+      
+      setIsCalibrating(true);
+      setIsLoading(false);
+      console.log('Calibration UI started successfully');
+    } catch (err: any) {
+      console.error('Calibration error:', err);
+      setError(
+        err.message || 
+        'Failed to start calibration. Please ensure:\n' +
+        '1. Camera permissions are granted\n' +
+        '2. You are using HTTPS or localhost\n' +
+        '3. Your browser supports WebRTC\n' +
+        'Check browser console for more details.'
+      );
+      setIsLoading(false);
     }
   };
 
-  const completeCalibration = () => {
-    setCalibrationComplete(true);
-    setIsCalibrating(false);
-
-    // Store calibration data in localStorage
-    localStorage.setItem('eyeTrackingCalibrated', 'true');
-    localStorage.setItem('eyeTrackingDwellTime', '1500');
+  const handleRecalibrate = () => {
+    setCalibrationComplete(false);
+    setProgress({ current: 0, total: 25, percentage: 0 });
+    heatmapData.current = []; // Clear heatmap data
+    recalibrateEyeGestures();
+    setIsCalibrating(true);
   };
 
   const startCommunicating = () => {
+    // Don't remove listeners or stop eye gestures - let the communicate page take over
+    // Just navigate with the eye tracking enabled flag
+    console.log('✅ Navigating to communicate page with eye tracking enabled');
     router.push('/communicate?eyeTracking=true');
   };
 
-  const recalibrate = () => {
-    setCalibrationComplete(false);
-    setCurrentStep(0);
-    setClickCount(0);
-    startCalibration();
-  };
-
   const skipCalibration = () => {
+    removeAllGazeListeners();
+    stopEyeGestures();
     router.push('/communicate');
   };
 
-  const progressPercentage = isCalibrating
-    ? ((currentStep * 3 + clickCount) / (CALIBRATION_POINTS.length * 3)) * 100
-    : 0;
+  useEffect(() => {
+    setIsLoading(false);
+    
+    return () => {
+      removeAllGazeListeners();
+    };
+  }, []);
 
-  if (isLoading) {
+  if (isLoading && !isCalibrating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[var(--tile-bg)] to-[var(--tile-bg2)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[var(--tile-border)] mx-auto mb-4" />
           <p className="text-[var(--tile-text)] text-lg">Loading eye tracking...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4" />
+          <p className="text-gray-500 text-sm">
+            Initializing MediaPipe FaceMesh and loading dependencies...
+          </p>
+          <div className="mt-4 text-xs text-gray-400">
+            This may take a few seconds on first load
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[var(--tile-bg)] to-[var(--tile-bg2)]">
+    <div
+      id="heatmap-container"
+      className="min-h-screen bg-gradient-to-b from-purple-50 to-white"
+      style={{ position: 'relative', width: '100vw', minHeight: '100vh' }}
+    >
+      {/* Debug toggle buttons (bottom left corner) */}
+      <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2">
+        <button
+          onClick={() => {
+            setShowHeatmap(!showHeatmap);
+            if (showHeatmap) {
+              heatmapData.current = []; // Clear data when disabling
+            }
+          }}
+          className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+            showHeatmap
+              ? 'bg-orange-600 text-white hover:bg-orange-700'
+              : 'bg-gray-800 text-white hover:bg-gray-900'
+          }`}
+        >
+          {showHeatmap ? '🔥 Heatmap ON' : '🔥 Debug Heatmap'}
+        </button>
+        <button
+          onClick={() => setShowCamera(!showCamera)}
+          className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+            showCamera
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-800 text-white hover:bg-gray-900'
+          }`}
+        >
+          {showCamera ? '📹 Camera ON' : '📹 Debug Camera'}
+        </button>
+      </div>
+
       {!isCalibrating && !calibrationComplete && (
-        <div className="container mx-auto px-4 py-4 md:py-8 lg:py-16 max-w-3xl">
+        <div className="container mx-auto px-4 py-4 md:py-8 lg:py-16 max-w-3xl relative z-40">
           <div className="text-center mb-4 md:mb-8">
             <div className="text-4xl md:text-6xl mb-2 md:mb-4">👁️</div>
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[var(--tile-text)] mb-2 md:mb-4">
               Eye Tracking Calibration
             </h1>
-            <p className="text-base md:text-lg text-[var(--tile-text)]">
-              Quick 5-point calibration for hands-free communication
+            <p className="text-base md:text-lg text-gray-600">
+              25-point calibration with built-in gaze tracking
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Powered by EyeGesturesLite with MediaPipe FaceMesh
             </p>
           </div>
 
-          <div className="bg-[var(--tile-bg)] rounded-xl md:rounded-2xl shadow-xl p-4 md:p-6 lg:p-8 mb-4 md:mb-6">
-            <h2 className="text-xl md:text-2xl font-semibold mb-3 md:mb-4 text-[var(--tile-text)]">How it works</h2>
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-6 rounded-r-lg">
+              <p className="text-red-800 font-semibold mb-2">⚠️ Error Starting Calibration</p>
+              <p className="text-red-700 text-sm whitespace-pre-line mb-3">{error}</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => window.open('/TROUBLESHOOTING.md', '_blank')}
+                  className="text-sm px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg transition-colors"
+                >
+                  📖 View Troubleshooting Guide
+                </button>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    startCalibration();
+                  }}
+                  className="text-sm px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                >
+                  🔄 Try Again
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl md:rounded-2xl shadow-xl p-4 md:p-6 lg:p-8 mb-4 md:mb-6">
+            <h2 className="text-xl md:text-2xl font-semibold mb-3 md:mb-4 text-gray-800">How it works</h2>
             <div className="space-y-3 md:space-y-4">
               <div className="flex gap-3 md:gap-4 items-start">
                 <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 bg-[var(--tile-bg2)] text-[var(--tile-text)] rounded-full flex items-center justify-center font-bold text-sm md:text-lg">
@@ -215,9 +380,10 @@ export default function CalibratePage() {
           <div className="space-y-3">
             <button
               onClick={startCalibration}
-              className="w-full py-4 bg-[var(--tile-bg)] hover:bg-[var(--tile-bg)] text-[var(--tile-text)] font-bold text-lg rounded-xl transition-colors shadow-lg hover:shadow-xl"
+              disabled={isLoading}
+              className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold text-lg rounded-xl transition-colors shadow-lg hover:shadow-xl"
             >
-              Start Calibration ({CALIBRATION_POINTS.length} points, ~30 seconds)
+              {isLoading ? 'Loading...' : 'Start Calibration (25 points, ~1 minute)'}
             </button>
 
             <button
@@ -246,11 +412,11 @@ export default function CalibratePage() {
                 <div className="flex items-center gap-4 mb-2">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs md:text-sm font-semibold text-[var(--tile-text)]">
-                        Point {currentStep + 1} of {CALIBRATION_POINTS.length}
+                      <span className="text-xs md:text-sm font-semibold text-gray-700">
+                        Calibration Point {progress.current} of {progress.total}
                       </span>
-                      <span className="text-xs md:text-sm font-semibold text-[var(--tile-text)]">
-                        {Math.round(progressPercentage)}%
+                      <span className="text-xs md:text-sm font-semibold text-purple-600">
+                        {Math.round(progress.percentage)}%
                       </span>
                     </div>
                     <div className="w-full bg-[var(--tile-bg)] rounded-full h-2 overflow-hidden">
@@ -261,8 +427,9 @@ export default function CalibratePage() {
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-center text-[var(--tile-text)]">
-                  <span className="font-semibold">{CALIBRATION_POINTS[currentStep]?.label}:</span> Click {3 - clickCount} more time{3 - clickCount !== 1 ? 's' : ''}
+                <div className="text-xs text-center text-gray-600">
+                  Look at the red circles • Blue cursor shows your gaze
+                  {showHeatmap && <span className="ml-2">• 🔥 Heatmap Active</span>}
                 </div>
               </div>
             </div>
@@ -318,8 +485,8 @@ export default function CalibratePage() {
       )}
 
       {calibrationComplete && (
-        <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-2xl">
-          <div className="bg-[var(--tile-bg)] rounded-xl md:rounded-2xl shadow-2xl p-6 md:p-8 text-center">
+        <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-2xl relative z-40">
+          <div className="bg-white rounded-xl md:rounded-2xl shadow-2xl p-6 md:p-8 text-center">
             <div className="text-5xl md:text-6xl lg:text-8xl mb-4 md:mb-6 animate-bounce">✅</div>
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[var(--tile-text)] mb-3 md:mb-4">
               Calibration Complete!
@@ -353,20 +520,6 @@ export default function CalibratePage() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes pulse-ring {
-          0% {
-            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
-          }
-          50% {
-            box-shadow: 0 0 0 30px rgba(220, 38, 38, 0);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -9,7 +9,11 @@ interface TextDisplayBarProps {
   onBackspace: () => void;
   onSpeak: () => void;
   onCopy: () => void;
-  isSpeaking: boolean;
+  isSpeaking?: boolean;
+  gazeData?: {
+    gazingTileId?: string;
+    gazeProgress: number;
+  };
 }
 
 export default function TextDisplayBar({
@@ -18,8 +22,10 @@ export default function TextDisplayBar({
   onBackspace,
   onSpeak,
   onCopy,
-  isSpeaking,
+  isSpeaking = false,
+  gazeData,
 }: TextDisplayBarProps) {
+  const { gazingTileId, gazeProgress } = gazeData || { gazingTileId: undefined, gazeProgress: 0 };
   return (
     <div className="bg-[var(--tile-bg)] border-b-2 border-[var(--tile-border)] shadow-md p-3 md:p-4">
       <div className="max-w-7xl mx-auto">
@@ -39,39 +45,100 @@ export default function TextDisplayBar({
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 justify-center">
           <button
-            onClick={onBackspace}
-            disabled={composedText.segments.length === 0}
-            className="px-4 md:px-6 py-2 md:py-3 bg-[var(--tile-bg)] hover:bg-gray-700 disabled:bg-[var(--tile-bg)] disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
-            aria-label="Remove last word"
-          >
-            ⌫ Backspace
-          </button>
-
-          <button
-            onClick={onClear}
-            disabled={composedText.segments.length === 0}
-            className="px-4 md:px-6 py-2 md:py-3 bg-red-600 hover:bg-[var(--tile-bg)] disabled:bg-[var(--tile-bg)] disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
-            aria-label="Clear all text"
-          >
-            🗑️ Clear
-          </button>
-
-          <button
             onClick={onSpeak}
             disabled={!composedText.fullText || isSpeaking}
-            className="px-4 md:px-6 py-2 md:py-3 bg-[var(--tile-bg)] hover:bg-[var(--tile-bg)] disabled:bg-[var(--tile-bg)] disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
-            aria-label="Speak the text"
+            data-gaze-target="true"
+            data-tile-id="btn-speak"
+            className={`flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors relative ${
+              gazingTileId === 'btn-speak' ? 'ring-4 ring-blue-500' : ''
+            }`}
           >
-            {isSpeaking ? '🔊 Speaking...' : '🔊 Speak'}
+            {/* Dwell progress indicator */}
+            {gazingTileId === 'btn-speak' && gazeProgress > 0 && (
+              <div className="absolute inset-0 rounded-lg overflow-hidden">
+                <div
+                  className="absolute inset-0 bg-blue-200 opacity-30"
+                  style={{
+                    clipPath: `circle(${gazeProgress}% at 50% 50%)`,
+                    transition: 'clip-path 50ms linear',
+                  }}
+                />
+              </div>
+            )}
+            <span className="text-2xl relative z-10">{isSpeaking ? '🔊' : '🔈'}</span>
+            <span className="relative z-10">{isSpeaking ? 'Speaking...' : 'Speak'}</span>
           </button>
 
           <button
             onClick={onCopy}
             disabled={!composedText.fullText}
-            className="px-4 md:px-6 py-2 md:py-3 bg-[var(--tile-bg)] hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-[var(--tile-text)] font-semibold rounded-lg transition-colors text-sm md:text-base"
-            aria-label="Copy text to clipboard"
+            data-gaze-target="true"
+            data-tile-id="btn-copy"
+            className={`flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors relative ${
+              gazingTileId === 'btn-copy' ? 'ring-4 ring-blue-500' : ''
+            }`}
           >
-            📋 Copy
+            {gazingTileId === 'btn-copy' && gazeProgress > 0 && (
+              <div className="absolute inset-0 rounded-lg overflow-hidden">
+                <div
+                  className="absolute inset-0 bg-blue-200 opacity-30"
+                  style={{
+                    clipPath: `circle(${gazeProgress}% at 50% 50%)`,
+                    transition: 'clip-path 50ms linear',
+                  }}
+                />
+              </div>
+            )}
+            <span className="text-2xl relative z-10">📋</span>
+            <span className="relative z-10">Copy</span>
+          </button>
+
+          <button
+            onClick={onBackspace}
+            disabled={composedText.segments.length === 0}
+            data-gaze-target="true"
+            data-tile-id="btn-backspace"
+            className={`flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors relative ${
+              gazingTileId === 'btn-backspace' ? 'ring-4 ring-blue-500' : ''
+            }`}
+          >
+            {gazingTileId === 'btn-backspace' && gazeProgress > 0 && (
+              <div className="absolute inset-0 rounded-lg overflow-hidden">
+                <div
+                  className="absolute inset-0 bg-blue-200 opacity-30"
+                  style={{
+                    clipPath: `circle(${gazeProgress}% at 50% 50%)`,
+                    transition: 'clip-path 50ms linear',
+                  }}
+                />
+              </div>
+            )}
+            <span className="text-2xl relative z-10">⌫</span>
+            <span className="relative z-10">Backspace</span>
+          </button>
+
+          <button
+            onClick={onClear}
+            disabled={composedText.segments.length === 0}
+            data-gaze-target="true"
+            data-tile-id="btn-clear"
+            className={`flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors relative ${
+              gazingTileId === 'btn-clear' ? 'ring-4 ring-blue-500' : ''
+            }`}
+          >
+            {gazingTileId === 'btn-clear' && gazeProgress > 0 && (
+              <div className="absolute inset-0 rounded-lg overflow-hidden">
+                <div
+                  className="absolute inset-0 bg-blue-200 opacity-30"
+                  style={{
+                    clipPath: `circle(${gazeProgress}% at 50% 50%)`,
+                    transition: 'clip-path 50ms linear',
+                  }}
+                />
+              </div>
+            )}
+            <span className="text-2xl relative z-10">🗑️</span>
+            <span className="relative z-10">Clear</span>
           </button>
         </div>
       </div>

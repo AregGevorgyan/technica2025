@@ -10,12 +10,21 @@ An intelligent, adaptive AAC (Augmentative and Alternative Communication) system
 ### ✅ Phase 1: Core Eye Tracking AAC (COMPLETED)
 
 #### Eye Tracking Features
-- **WebGazer.js Integration**: Webcam-based eye tracking without special hardware
-- **Streamlined Calibration**: 5-point calibration process (~30 seconds)
-  - Reduced from 9 points for faster setup
-  - Progress bar shows real-time completion percentage
-  - Visual feedback with color-coded dots (red=active, green=completed, gray=pending)
-  - Bottom-positioned progress bar to avoid obstructing calibration points
+- **EyeGesturesLite Integration**: MediaPipe FaceMesh-based eye tracking without special hardware
+  - No external dependencies beyond the library itself
+  - Built on Google MediaPipe for robust face and eye landmark detection
+  - Works with standard webcams on desktop and mobile devices
+- **Built-in Calibration**: 25-point calibration process (~1 minute)
+  - Automatic calibration UI with red target circles
+  - Visual feedback with color-coded dots (red=active, green=completed)
+  - Blue cursor shows estimated gaze position during calibration
+  - Progress tracking with real-time percentage display
+  - Gradual accuracy improvement as calibration progresses
+- **Debug Heatmap Overlay**: Toggleable visualization for development
+  - Real-time heatmap showing gaze distribution
+  - Uses heatmap.js for smooth visualization
+  - Helps verify calibration accuracy and tracking quality
+  - Can be enabled/disabled from calibration page
 - **Dwell-Based Selection**: Look at tiles for 1.5 seconds to select
   - Visual feedback with blue rings and fill animations
   - Progress indicator shows dwell completion percentage
@@ -25,9 +34,10 @@ An intelligent, adaptive AAC (Augmentative and Alternative Communication) system
   - Alpha value of 0.3 balances responsiveness vs. smoothness
   - 20px margin around elements for easier targeting
 - **Real-Time Visual Feedback**:
-  - Blue gaze cursor follows eye movements
+  - Custom blue gaze cursor follows eye movements
   - Progress rings around tiles during dwell
   - Fill animations show selection progress
+  - Built-in red calibration cursor during setup
 
 #### Communication Features
 - **Flexible Speech Output Modes**:
@@ -67,7 +77,12 @@ An intelligent, adaptive AAC (Augmentative and Alternative Communication) system
 - **Framework**: Next.js 14+ (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **Eye Tracking**: WebGazer.js
+- **Eye Tracking**: EyeGesturesLite (MediaPipe FaceMesh-based)
+  - Repository: https://github.com/NativeSensors/EyeGesturesLite
+  - Uses Google MediaPipe for face mesh detection
+  - Built-in calibration system with 25 points
+  - No external hardware required
+- **Debug Visualization**: heatmap.js for gaze heatmap overlay
 - **State Management**: Zustand (for complex state across memory/context)
 - **Image Handling**: Next.js Image optimization
 
@@ -110,8 +125,8 @@ adaptive-aac-app/
 │   └── page.tsx                # Landing/mode selection
 ├── components/
 │   ├── calibration/
-│   │   ├── CalibrationDots.tsx
-│   │   └── CalibrationProgress.tsx
+│   │   ├── CalibrationDots.tsx        # (Deprecated - now using EyeGesturesLite built-in UI)
+│   │   └── CalibrationProgress.tsx    # (Deprecated - now using EyeGesturesLite built-in UI)
 │   ├── communication/
 │   │   ├── AdaptiveTileGrid.tsx       # Dynamic tile layout
 │   │   ├── SymbolTile.tsx             # Image/symbol + text tile
@@ -136,10 +151,11 @@ adaptive-aac-app/
 │       └── KeyboardHandler.tsx        # Keyboard navigation
 ├── lib/
 │   ├── input/
-│   │   ├── webgazer-init.ts        # Eye tracking setup
-│   │   ├── gaze-utils.ts           # Gaze detection helpers
-│   │   ├── click-handler.ts        # Click/touch logic
-│   │   └── keyboard-handler.ts     # Keyboard navigation
+│   │   ├── eyegestures-init.ts         # EyeGesturesLite initialization and management
+│   │   ├── gaze-utils.ts               # Gaze detection helpers (smoothing, dwell)
+│   │   ├── webgazer-init.ts            # (Deprecated - replaced by EyeGesturesLite)
+│   │   ├── click-handler.ts            # Click/touch logic
+│   │   └── keyboard-handler.ts         # Keyboard navigation
 │   ├── llm/
 │   │   ├── prediction-service.ts
 │   │   ├── memory-service.ts       # Manage user memories
@@ -588,6 +604,40 @@ Users can request new suggestions at any time:
 
 ## Key Implementation Details
 
+### EyeGesturesLite Setup Requirements
+
+EyeGesturesLite requires specific DOM elements and external dependencies to function:
+
+1. **Required DOM Elements** (automatically created by `eyegestures-init.ts`):
+   - `<video id="video">` - Webcam feed (can be hidden)
+   - `<div id="status">` - Status messages (can be hidden)
+   - `<div id="error">` - Error messages (can be hidden)
+   - `<canvas id="output_canvas">` - MediaPipe visualization (usually hidden)
+
+2. **Required CSS** (in `app/eyegestures.css`):
+   - `#cursor` - Blue gaze cursor (50px circle)
+   - `#calib_cursor` - Red calibration cursor (200px circle)
+   - `#logoDivEyeGestures` - Library logo/branding
+
+3. **External Dependencies** (loaded via CDN by the library):
+   - MediaPipe FaceMesh (@mediapipe/face_mesh)
+   - MediaPipe Drawing Utils (@mediapipe/drawing_utils)
+   - ML.js (ml-matrix for regression)
+   - Math.js (for mathematical operations)
+
+4. **Calibration Process**:
+   - 25 calibration points displayed automatically
+   - User must look at each red circle until it moves
+   - Blue cursor shows estimated gaze and improves with each point
+   - Built-in instructions overlay guides the user
+   - Calibration typically takes ~1 minute
+
+5. **Debug Features**:
+   - Toggleable heatmap overlay (heatmap.js)
+   - Visualizes gaze distribution across the screen
+   - Useful for verifying calibration quality
+   - Can be enabled from calibration page
+
 ### Adaptive Tile Generation
 ```typescript
 // /api/adapt/tiles
@@ -905,8 +955,11 @@ describe('Memory Service', () => {
 - Sarah reviews her memories weekly and enjoys seeing what the app has learned
 
 ## Resources & Links
+- [EyeGesturesLite Repository](https://github.com/NativeSensors/EyeGesturesLite) - Open-source eye tracking library
+- [EyeGesturesLite Demo](https://eyegestures.com/tryLite) - Try the library online
+- [MediaPipe FaceMesh](https://developers.google.com/mediapipe/solutions/vision/face_landmarker) - Underlying face tracking technology
+- [heatmap.js Documentation](https://www.patrick-wied.at/static/heatmapjs/) - Gaze heatmap visualization
 - [OpenSymbols Library](https://github.com/open-aac/opensymbols) - Open-source AAC symbol sets
-- [WebGazer.js Documentation](https://webgazer.cs.brown.edu/) - Eye tracking library
 - [Next.js Documentation](https://nextjs.org/docs) - React framework
 - [Supabase pgvector Guide](https://supabase.com/docs/guides/ai/vector-columns) - Vector database
 - [Google Custom Search API](https://developers.google.com/custom-search/v1/overview) - Image search

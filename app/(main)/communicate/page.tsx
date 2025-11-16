@@ -9,6 +9,7 @@ import CategoryBrowser from '@/components/communication/CategoryBrowser';
 import EyeTracker from '@/components/input/EyeTracker';
 import { CommunicationTile, ComposedText, Category, TextSegment } from '@/types/communication';
 import { DwellDetector } from '@/lib/input/gaze-utils';
+import { showVideoPreview } from '@/lib/input/eyegestures-init';
 
 // Mock categories for demo
 const DEFAULT_CATEGORIES: Category[] = [
@@ -47,8 +48,12 @@ function CommunicatePageContent() {
   const [showCategories, setShowCategories] = useState(false);
   const [gazingTileId, setGazingTileId] = useState<string | undefined>();
   const [gazeProgress, setGazeProgress] = useState(0);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
   const dwellDetector = useRef(new DwellDetector());
+  const heatmapInstance = useRef<any>(null);
+  const heatmapData = useRef<Array<{ x: number; y: number; value: number }>>([]);
 
   // Settings (would come from user preferences in real app)
   const settings = {
@@ -87,13 +92,24 @@ function CommunicatePageContent() {
     }
   }, [speechMode]);
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      setIsSpeaking(true);
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
+  const speakText = async (text: string) => {
+    setIsSpeaking(true);
+    try {
+      // Try ElevenLabs first for high-quality TTS
+      const { speakWithElevenLabs } = await import('@/lib/tts/elevenlabs');
+      await speakWithElevenLabs({ text });
+      setIsSpeaking(false);
+    } catch (error) {
+      console.warn('ElevenLabs TTS failed, falling back to Web Speech API:', error);
+      // Fallback to browser's Web Speech API
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setIsSpeaking(false);
+      }
     }
   };
 
@@ -151,21 +167,148 @@ function CommunicatePageContent() {
     console.log('Category selected:', category);
   };
 
+  // Initialize heatmap
+  useEffect(() => {
+    if (showHeatmap && !heatmapInstance.current && typeof window !== 'undefined') {
+      // Check if heatmap.js is already loaded
+      const h337 = (window as any).h337;
+
+      const initHeatmap = () => {
+        const container = document.getElementById('heatmap-container');
+        if (!container) {
+          console.error('Heatmap container not found!');
+          return;
+        }
+
+        const h337Instance = (window as any).h337;
+        if (h337Instance) {
+          heatmapInstance.current = h337Instance.create({
+            container: container,
+            radius: 50,
+            maxOpacity: 0.6,
+            blur: 0.85,
+          });
+          console.log('✅ Heatmap initialized on communicate page');
+
+          // Style the heatmap canvas to be a transparent overlay
+          const canvas = container.querySelector('canvas');
+          if (canvas) {
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.pointerEvents = 'none';
+            canvas.style.zIndex = '10';
+          }
+        }
+      };
+
+      if (!h337) {
+        // Load heatmap.js if not already loaded
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/build/heatmap.min.js';
+        script.onload = () => {
+          initHeatmap();
+        };
+        script.onerror = () => {
+          console.error('Failed to load heatmap.js');
+        };
+        document.head.appendChild(script);
+      } else {
+        // Already loaded, initialize immediately
+        initHeatmap();
+      }
+    }
+
+    // Cleanup heatmap when disabled
+    if (!showHeatmap && heatmapInstance.current) {
+      // Remove the canvas element
+      const container = document.getElementById('heatmap-container');
+      if (container) {
+        const canvas = container.querySelector('canvas');
+        if (canvas) {
+          canvas.remove();
+        }
+      }
+      heatmapInstance.current = null;
+      heatmapData.current = [];
+    }
+  }, [showHeatmap]);
+
+  // Toggle camera view
+  useEffect(() => {
+    if (eyeTrackingEnabled) {
+      showVideoPreview(showCamera);
+    }
+  }, [showCamera, eyeTrackingEnabled]);
+
+  // Ensure camera is hidden when page first loads
+  useEffect(() => {
+    if (eyeTrackingEnabled && !showCamera) {
+      // Give initialization time to complete, then force hide
+      const timeout = setTimeout(() => {
+        showVideoPreview(false);
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [eyeTrackingEnabled]);
+
   // Eye tracking gaze update handler
   const handleGazeUpdate = useCallback((x: number, y: number) => {
     if (!eyeTrackingEnabled) return;
 
+    // Debug logging (can be removed later)
+    if (Math.random() < 0.01) { // Log 1% of the time to avoid spam
+      console.log('Gaze update:', { x, y });
+    }
+
+    // Update heatmap if enabled
+    if (showHeatmap && heatmapInstance.current) {
+      heatmapData.current.push({
+        x: parseInt(String(x)),
+        y: parseInt(String(y)),
+        value: 30,
+      });
+
+      // Keep only last 20 points (like the demo)
+      if (heatmapData.current.length > 20) {
+        heatmapData.current.shift();
+      }
+
+      heatmapInstance.current.setData({
+        max: 100,
+        data: heatmapData.current,
+      });
+    }
+
     // Find which tile is being gazed at
     const tileElements = document.querySelectorAll('[data-gaze-target]');
     let foundGazingTile = false;
+
+    // Debug logging
+    if (tileElements.length === 0 && Math.random() < 0.01) {
+      console.warn('No gaze-target elements found!');
+    }
 
     tileElements.forEach((el) => {
       const htmlEl = el as HTMLElement;
       const tileId = htmlEl.getAttribute('data-tile-id');
       if (!tileId) return;
 
+      // Skip disabled buttons
+      if (htmlEl.hasAttribute('disabled') || htmlEl.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+
       const rect = htmlEl.getBoundingClientRect();
-      const isGazing = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      // Add margin for easier targeting
+      const margin = 20;
+      const isGazing =
+        x >= rect.left - margin &&
+        x <= rect.right + margin &&
+        y >= rect.top - margin &&
+        y <= rect.bottom + margin;
 
       if (isGazing) {
         const { isDwelling, progress } = dwellDetector.current.checkDwell(
@@ -175,19 +318,67 @@ function CommunicatePageContent() {
           settings.dwellTime
         );
 
+        // Debug logging
+        if (progress > 0 && progress % 25 === 0) {
+          console.log(`Gazing at tile ${tileId}, progress: ${progress.toFixed(0)}%`);
+        }
+
         setGazingTileId(tileId);
         setGazeProgress(progress);
         foundGazingTile = true;
 
         if (isDwelling) {
-          // Trigger selection
-          const tile = tiles.find(t => t.id === tileId);
-          if (tile) {
-            console.log('Eye tracking: Dwell complete on tile:', tile.text);
-            handleTileSelect(tile);
-            // Reset dwell detector after selection
-            dwellDetector.current.reset();
+          console.log('✅ Eye tracking: Dwell complete on element:', tileId);
+
+          // Check if it's a button or a tile
+          if (tileId.startsWith('btn-')) {
+            // Handle button clicks
+            console.log('Button detected:', tileId);
+            switch (tileId) {
+              case 'btn-speak':
+                console.log('Speak button - checking conditions:', {
+                  hasText: !!composedText.fullText,
+                  isSpeaking,
+                  text: composedText.fullText
+                });
+                if (composedText.fullText && !isSpeaking) {
+                  console.log('✅ Calling handleSpeak()');
+                  handleSpeak();
+                } else {
+                  console.log('❌ Speak button conditions not met');
+                }
+                break;
+              case 'btn-copy':
+                console.log('Copy button - has text:', !!composedText.fullText);
+                if (composedText.fullText) {
+                  handleCopy();
+                }
+                break;
+              case 'btn-backspace':
+                console.log('Backspace button - segments:', composedText.segments.length);
+                if (composedText.segments.length > 0) {
+                  handleBackspace();
+                }
+                break;
+              case 'btn-clear':
+                console.log('Clear button - segments:', composedText.segments.length);
+                if (composedText.segments.length > 0) {
+                  handleClear();
+                }
+                break;
+            }
+          } else {
+            // Handle tile selection
+            const tile = tiles.find(t => t.id === tileId);
+            if (tile) {
+              handleTileSelect(tile);
+            }
           }
+
+          // Reset dwell detector after selection
+          dwellDetector.current.reset();
+          setGazingTileId(undefined);
+          setGazeProgress(0);
         }
       }
     });
@@ -196,10 +387,45 @@ function CommunicatePageContent() {
       setGazingTileId(undefined);
       setGazeProgress(0);
     }
-  }, [eyeTrackingEnabled, tiles, settings.dwellTime, handleTileSelect]);
+  }, [eyeTrackingEnabled, tiles, settings.dwellTime, handleTileSelect, showHeatmap, composedText, isSpeaking, handleSpeak, handleCopy, handleBackspace, handleClear]);
 
   const content = (
-    <div className="min-h-screen flex flex-col bg-[var(--tile-bg2)] w-full overflow-x-hidden">
+    <div
+      id="heatmap-container"
+      className="min-h-screen flex flex-col bg-gray-100 w-full overflow-x-hidden"
+      style={{ position: 'relative', width: '100vw', height: '100vh' }}
+    >
+      {/* Debug toggle buttons (bottom right corner) */}
+      {eyeTrackingEnabled && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              setShowHeatmap(!showHeatmap);
+              if (showHeatmap) {
+                heatmapData.current = []; // Clear data when disabling
+              }
+            }}
+            className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+              showHeatmap
+                ? 'bg-orange-600 text-white hover:bg-orange-700'
+                : 'bg-gray-800 text-white hover:bg-gray-900'
+            }`}
+          >
+            {showHeatmap ? '🔥 Heatmap ON' : '🔥 Debug Heatmap'}
+          </button>
+          <button
+            onClick={() => setShowCamera(!showCamera)}
+            className={`px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors ${
+              showCamera
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-800 text-white hover:bg-gray-900'
+            }`}
+          >
+            {showCamera ? '📹 Camera ON' : '📹 Debug Camera'}
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-[var(--tile-bg2)] shadow-md p-3 md:p-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -248,6 +474,10 @@ function CommunicatePageContent() {
           onSpeak={handleSpeak}
           onCopy={handleCopy}
           isSpeaking={isSpeaking}
+          gazeData={eyeTrackingEnabled ? {
+            gazingTileId,
+            gazeProgress,
+          } : undefined}
         />
       )}
 

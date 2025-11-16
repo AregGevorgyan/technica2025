@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./eyegestures.css";
 
 export const metadata: Metadata = {
   title: "Adaptive AAC - Intelligent Communication System",
