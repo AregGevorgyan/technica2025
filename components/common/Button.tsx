@@ -18,7 +18,7 @@ export default function Button({
   const variantStyles = {
     primary: 'bg-[var(--background)] hover:bg-[var(--background2)] text-[var(--text)] focus:ring-blue-500',
     secondary: 'bg-[var(--background3)] hover:bg-[var(--background4)] text-[var(--text)] focus:ring-gray-500',
-    outline: 'border-2 border-[var(--border)] hover:border-[var(--border)] text-[var(--text)] focus:ring-gray-500',
+    outline: 'border-2 border-[var(--border2)] hover:border-[var(--border)] text-[var(--text)] focus:ring-gray-500',
     danger: 'bg-red-600 hover:bg-red-700 text-[var(--text)] focus:ring-red-500',
   };
 
